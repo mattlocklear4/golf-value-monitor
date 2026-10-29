@@ -1,18 +1,18 @@
-# Golf Value Monitor V4
+# Golf Value Monitor V5
 
-Static, private-use golf round-score value screen. Deploy `index.html` at the root of your existing GitHub repository connected to Netlify. No build command; publish directory `.`.
+Static site for Netlify. Replace the existing repository `index.html` with this version. No build command; publish directory `.`.
 
-## Features
-- DataGolf CSV upload by round: R1–R3 `total_points`, R4 `scoring_points`.
-- User-entered field score-to-par prediction and course par.
-- Tournament StDev `.xlsx`/`.csv` upload, column A player and D Adj STDEV; fallback 3.00.
-- Four sportsbook TSV boards: DraftKings, FanDuel, Caesars, Fanatics.
-- Each import replaces only the selected sportsbook's current round; existing V3 DraftKings data is migrated automatically in the browser.
-- Best Over and best Under per player, ranked by expected ROI; All Books shows every offer.
-- Clipboard paste helper (Chrome permission required), CSV export, search/filter, import timestamps.
+## V5 changes
+- Default Full Odds Board: player, tee time, projected score, then 7 columns for each of DraftKings, FanDuel, Caesars, Fanatics.
+- Preserves player order from each uploaded DataGolf CSV; no automatic ranking or tee-time sort.
+- Tee times from DataGolf CSV column F (header `r1_tee_time` etc. when available). `12:38 pm*` displays `12:38 PM` and is internally parsed as 12:38 PM. No starting-hole column.
+- No Line for missing sportsbook offers; blanks for other cells.
+- Fair Over/Under American odds and ROI per sportsbook line; green ROI shading.
+- Best Over + Best Under screen and All Offers screen retained; sorted by ROI.
+- CSV export for the current screen.
+- V4 browser data migrates automatically via the existing localStorage key. Existing players won't have tee times until a new DataGolf CSV is uploaded.
 
-## Data & privacy
-Data is stored in this browser's `localStorage`, not in Supabase. Do not clear site storage before backing up your data. The included example round data is illustrative; upload current projections and odds for real use. No automatic sportsbook scraping or live odds feed.
+## Data
+Rounds 1–3 use `total_points`; Round 4 uses `scoring_points`. Player score projection = course par + manually entered field score-to-par − (player fantasy points − full CSV fantasy average)/4.1. StDev from Excel column D, default 3.00. Four-column TSV import is per-book and per-round.
 
-## Calculation
-Projected strokes = course par + manual field scoring prediction − (player DataGolf points − mean field DataGolf points) / 4.1. For half-stroke lines, normal CDF prices each side. ROI = p × net profit per unit − (1−p).
+All data is saved only in this browser. This is a manual odds screen, not a live odds feed.

@@ -54,6 +54,7 @@
   .board-table .tee-col{min-width:92px;width:92px}
   .board-table .proj-col{min-width:95px;width:95px}
 }
+.gvm-board-round{display:flex;flex-direction:column;gap:5px;color:var(--muted);font-size:12px;margin-left:auto}.gvm-board-round select{min-width:112px;padding:8px 10px}.panelhead:has(.gvm-board-round) #count{margin-left:0}@media(max-width:700px){.gvm-board-round{margin-left:0}.panelhead:has(.gvm-board-round){align-items:end}}
 </style></head><body><div class="wrap">
 <header><div><h1>⛳ Golf Player Prop Board</h1><div class="sub">DataGolf projections · spreadsheet-style four-book odds board · player-specific StDev</div></div><span class="tag">Manual odds updates · no live feed</span></header>
 <div class="panel" style="margin-top:18px"><h2>Round &amp; scoring model</h2><div class="model-grid">
@@ -177,7 +178,7 @@ function render(){let d=roundData(),a=average(d.players),all=d.players.flatMap(o
  for(const o of rows){let tr=document.createElement('tr');function cell(t,cls=''){let td=document.createElement('td');td.textContent=t;td.className=cls;tr.appendChild(td);}cell(o.p.name,'player');cell(o.side);cell(o.book);cell(o.line??'—');cell(o.od===null?'—':(o.od>0?'+':'')+o.od);cell(o.fair);cell(o.pr===null?'—':pct(o.pr));cell(o.edge===null?'—':(o.edge>=0?'+':'')+pct(o.edge),o.edge>0?'edge':'loss');cell(o.roi===null?'—':(o.roi>=0?'+':'')+pct(o.roi),o.roi>0?'edge':'loss');cell(Number.isFinite(o.mu)?o.mu.toFixed(2):'—');cell(Number.isFinite(o.mu)?(o.mu-d.par).toFixed(2):'—');let st=getSd(o.p);cell(st.sd.toFixed(2));cell(st.source,st.source==='Default'?'warn':'ok');cell(Number(o.p.dg).toFixed(2));body.appendChild(tr);}
  switchScreen();if($('screen').value==='board')renderBoard();updateQuality();let statuses=BOOKS.map(b=>b+': '+(Object.keys(d.books?.[b]||{}).length)+' players'+(d.bookUpdated?.[b]?' · '+new Date(d.bookUpdated[b]).toLocaleString():''));$('bookStatus').textContent=statuses.join(' | ');
 }
-function updateControls(){let d=roundData();$('par').value=String(d.par);$('field').value=d.field;$('divisor').value=d.divisor;let a=average(d.players);$('dgstatus').textContent=(d.uploaded||'No CSV uploaded')+' · '+d.players.length+' players · '+(current==='4'?'scoring_points (I)':'total_points (L)')+' · fantasy average '+(Number.isFinite(a)?a.toFixed(4):'—');render();}
+function updateControls(){let d=roundData();const boardRound=document.getElementById('boardRound');if(boardRound)boardRound.value=current;$('par').value=String(d.par);$('field').value=d.field;$('divisor').value=d.divisor;let a=average(d.players);$('dgstatus').textContent=(d.uploaded||'No CSV uploaded')+' · '+d.players.length+' players · '+(current==='4'?'scoring_points (I)':'total_points (L)')+' · fantasy average '+(Number.isFinite(a)?a.toFixed(4):'—');render();}
 
 function updateQuality(){
  const d=roundData(),players=d.players||[],missing=players.filter(p=>getSd(p).source==='Default');
@@ -524,6 +525,17 @@ $('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);i
   const panel=document.createElement('section');panel.id='gvm-panel-'+key;panel.className='gvm-tab-panel';panel.setAttribute('role','tabpanel');panel.setAttribute('aria-labelledby',btn.id);
   buttons[key]=btn;panels[key]=panel;nav.appendChild(btn);
   for(const el of groups[key].filter(Boolean))panel.appendChild(el);
+ }
+ // Keep a round selector visible on the Odds Board, linked to the original setup selector.
+ const boardHeading=groups.board[1]?.querySelector('.panelhead');
+ if(boardHeading){
+  const selector=document.createElement('label');selector.className='gvm-board-round';selector.textContent='Tournament round';
+  const boardRound=document.createElement('select');boardRound.id='boardRound';boardRound.setAttribute('aria-label','Tournament round on Odds Board');
+  for(let i=1;i<=4;i++){const option=document.createElement('option');option.value=String(i);option.textContent='Round '+i;boardRound.appendChild(option);}
+  const setupRound=document.getElementById('round');boardRound.value=setupRound.value;
+  boardRound.addEventListener('change',()=>{setupRound.value=boardRound.value;setupRound.dispatchEvent(new Event('change',{bubbles:true}));});
+  setupRound.addEventListener('change',()=>{boardRound.value=setupRound.value;});
+  selector.appendChild(boardRound);boardHeading.insertBefore(selector,boardHeading.querySelector('#count'));
  }
  const mini=document.createElement('span');mini.className='gvm-sync-mini';mini.id='gvm-sync-mini';mini.setAttribute('aria-live','polite');nav.appendChild(mini);
  const header=wrap.querySelector('header');header.insertAdjacentElement('afterend',nav);

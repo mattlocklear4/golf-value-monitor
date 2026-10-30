@@ -1,14 +1,5 @@
-# Golf Player Prop Board V7.1
+# Golf Player Prop Board V7.2
 
-## Fix
-- Handles Supabase email sign-in callbacks explicitly (PKCE `code`, token hash, and legacy hash tokens).
-- Displays callback errors instead of silently returning to sign-in.
-- Disables cloud upload/download unless an authenticated session is verified.
-- Retains all existing V7 odds-board, DataGolf, OneDrive, and browser-storage functionality.
+Fixes OAuth callback collision: the Microsoft OneDrive handler now only consumes callback codes whose state matches a pending Microsoft login. Supabase email PKCE callbacks are left intact for the Supabase handler.
 
-## Deploy
-Replace your existing GitHub `index.html`, commit, wait for Netlify to publish, then hard-refresh in Edge.
-
-Request a **new** sign-in email after deployment, open it in the same Edge profile, and verify the cloud panel reads `Signed in as ...` before uploading local data.
-
-**Safety:** Do not upload or download until the signed-in confirmation appears. Keep your existing browser data. No Supabase SQL or API key changes required.
+Deploy by replacing index.html in your GitHub repo and committing. Wait for Netlify Published, then hard refresh in Edge. Request one fresh Supabase email link when your rate limit allows. Verify “Signed in as…” before uploading browser data. No database changes needed.

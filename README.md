@@ -1,16 +1,14 @@
-# Golf Value Monitor V6.1
+# Golf Player Prop Board — V6.2
 
-Retains V6 functionality, adding **safe named-worksheet selection for OneDrive StDev sync**.
+Upload `index.html` to the root of your existing GitHub repository. Netlify deploys automatically. Existing local browser data and OneDrive configuration remain under their previous storage keys.
 
-- OneDrive refresh uses the worksheet named exactly `PGA STDEV`, regardless of tab order or internal worksheet XML filename.
-- Reads player names from column A and adjusted standard deviations from column D.
-- Validates the workbook sheet-to-relationship mapping; fails safely if the sheet is missing or invalid.
-- Never replaces the previous StDev data on a failed refresh.
-- After a successful refresh, displays valid StDev count, current-round match count, and a five-player preview.
-- Existing manual XLSX/CSV upload, DataGolf player order/tee times, four sportsbook boards and local storage are unchanged.
+## New
+- Updated on-screen and browser title to Golf Player Prop Board. Existing Netlify URL and GitHub repository name stay unchanged.
+- Data quality panel shows player-specific versus default StDevs and unmatched sportsbook names from the current browser session.
+- Save alternate player names for future TSV imports; reimport odds after adding an alias.
+- Board minimum positive ROI highlight threshold (does not hide rows).
 
-## Install
-
-Replace `index.html` in the GitHub repo and commit; wait for Netlify to publish. Hard-refresh the website. No new Microsoft permissions are needed. Connect your Microsoft account if the previous session has expired, select the workbook, then click Refresh StDevs.
-
-The OneDrive sync depends on Microsoft Graph access and the selected workbook being available; a successful real-account refresh still needs browser testing.
+## Notes
+- Aliases are stored locally in this browser, not in Supabase.
+- Unmatched sportsbook reports are session-only; refresh/reimport to regenerate them.
+- Model assumptions and OneDrive `PGA STDEV` worksheet import are unchanged.

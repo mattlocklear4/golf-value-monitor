@@ -47,6 +47,7 @@
 <div class="toolbar" style="margin-top:12px"><label>Microsoft application (client) ID<input id="msClientId" style="width:340px;max-width:90vw" placeholder="Paste Application (client) ID" autocomplete="off"/></label><button id="msConnect" class="primary">Connect Microsoft OneDrive</button><button id="msDisconnect">Disconnect</button></div>
 <div class="toolbar" style="margin-top:12px"><button id="msChoose">Choose workbook</button><button id="msRefresh" class="primary">Refresh StDevs</button><span id="msSelected" class="help"></span></div>
 <div class="note" style="margin-top:8px">Worksheet: <strong>PGA STDEV</strong> · Name: A · Adjusted StDev: D</div><div id="msPreview" class="status" style="display:none;margin-top:8px"></div><div id="msBrowser" class="tablewrap" style="display:none;max-height:300px;overflow:auto;margin-top:10px"></div><div id="msStatus" class="status">Not connected.</div></div>
+<div class="panel" id="cloudPanel"><h2>Supabase Cloud Sync <span class="tag">V7</span></h2><p class="note">Your existing browser data stays untouched until you choose to upload or download it. Sign in by email, then make a one-time choice. After the first successful transfer, edits sync automatically while signed in.</p><div class="toolbar"><label>Supabase project URL<input id="cloudUrl" style="width:340px;max-width:90vw" placeholder="https://your-project.supabase.co"/></label><label>Supabase publishable key<input id="cloudKey" type="password" style="width:300px;max-width:90vw" placeholder="sb_publishable_..." autocomplete="off"/></label><button id="cloudConfigure">Save connection</button></div><div class="toolbar" style="margin-top:12px"><label>Sign-in email<input id="cloudEmail" type="email" placeholder="Your email address" autocomplete="email"/></label><button id="cloudLogin" class="primary">Email me a sign-in link</button><button id="cloudLogout">Sign out</button></div><div id="cloudStatus" class="status" aria-live="polite">Not connected. Your board is saved in this browser.</div><div class="toolbar" style="margin-top:12px"><button id="cloudUpload" class="primary">Upload this browser's data to cloud</button><button id="cloudDownload">Load cloud data into this browser</button><button id="cloudPause">Pause automatic sync</button></div><p class="note">First upload creates your cloud record only if none exists. If cloud data already exists, uploading requires an explicit overwrite confirmation. Downloading also asks before replacing local data. Microsoft OneDrive authentication tokens are never uploaded. Do not use a Supabase secret/service-role key.</p></div>
 <div class="summary"><div class="stat"><small>Players in selected CSV</small><strong id="nPlayers">—</strong></div><div class="stat"><small>DataGolf field fantasy average</small><strong id="dgAvg">—</strong></div><div class="stat"><small>Players with any odds</small><strong id="nOdds">—</strong></div><div class="stat"><small>Top expected ROI</small><strong id="bestROI">—</strong></div></div>
 <div class="panel" id="qualityPanel"><h2>Player matching &amp; data quality</h2><p class="note">Review missing StDevs and unmatched sportsbook names. Save an alias once to reuse it on future imports in this browser. Existing odds and projections are preserved.</p><div class="summary"><div class="stat"><small>Player-specific StDevs</small><strong id="qualitySd">—</strong></div><div class="stat"><small>Default StDev used</small><strong id="qualityDefault">—</strong></div><div class="stat"><small>Unmatched odds names</small><strong id="qualityOdds">—</strong></div><div class="stat"><small>Players with odds</small><strong id="qualityPriced">—</strong></div></div><details style="margin-top:12px"><summary>Players using default StDev</summary><p class="note" id="missingSdList">—</p></details><details style="margin-top:12px"><summary>Unmatched sportsbook names</summary><p class="note" id="unmatchedOddsList">—</p></details><div class="toolbar" style="margin-top:14px"><label>Unmatched / alternate player name<input id="aliasFrom" placeholder="e.g. Benjamin James"/></label><label>Match to DataGolf player<select id="aliasTo"><option value="">Select player</option></select></label><button id="saveAlias">Save player alias</button></div><p class="note" id="aliasMsg"></p><div class="toolbar"><label>Board minimum positive ROI to highlight (%)<input type="number" id="boardMinRoi" min="0" step="0.5" value="0" style="width:100px"/></label></div><p class="note">All players remain in DataGolf order. Below-threshold ROI cells remain visible without green highlighting.</p></div>
 <div class="panel"><h2>Sportsbook odds import</h2><p class="note">Select a sportsbook, then paste Gemini's four-column TSV (Player Name, Line, Over Odds, Under Odds). A new import replaces <strong>only that book's current-round board</strong>; unmatched names and invalid rows are reported. Other books and rounds remain intact.</p>
@@ -56,7 +57,8 @@
 <div class="tablewrap board-wrap" id="boardWrap"><table class="board-table"><thead><tr class="group-head"><th class="frozen player-col" rowspan="2">Player</th><th class="frozen tee-col" rowspan="2">Tee Time</th><th class="frozen proj-col" rowspan="2">Score Proj.</th><th class="group dk" colspan="7">DraftKings</th><th class="group fd" colspan="7">FanDuel</th><th class="group cz" colspan="7">Caesars</th><th class="group fn" colspan="7">Fanatics</th></tr><tr class="subhead"><th class="book-start">Line</th><th>Over</th><th>Fair O</th><th>O ROI</th><th>Under</th><th>Fair U</th><th>U ROI</th><th class="book-start">Line</th><th>Over</th><th>Fair O</th><th>O ROI</th><th>Under</th><th>Fair U</th><th>U ROI</th><th class="book-start">Line</th><th>Over</th><th>Fair O</th><th>O ROI</th><th>Under</th><th>Fair U</th><th>U ROI</th><th class="book-start">Line</th><th>Over</th><th>Fair O</th><th>O ROI</th><th>Under</th><th>Fair U</th><th>U ROI</th></tr></thead><tbody id="boardBody"></tbody></table></div><div class="tablewrap" id="offersWrap"><table><thead><tr><th>Player</th><th>Side</th><th>Sportsbook</th><th>Line</th><th>Book Odds</th><th>Fair Odds</th><th>Model %</th><th>Edge</th><th>Expected ROI ↓</th><th>Projected Strokes</th><th>To Par</th><th>StDev</th><th>StDev Source</th><th>DG Points</th></tr></thead><tbody id="body"></tbody></table></div>
 <p class="note" id="boardNote">Players stay in DataGolf CSV order. Tee times come from column F; a trailing * is removed. Scroll horizontally to compare all four books. Green ROI cells indicate positive modeled expected return. No Line means no imported offer for that player and book.</p><p class="note" id="offersNote">The Best screen chooses the highest-ROI <strong>Over and Under separately</strong> for each player. Different lines are priced independently. Odds are manual snapshots, not live feeds; the last import time for each sportsbook appears above.</p></div>
 <p class="note">Model: strokes = par + your field prediction − (player fantasy points − uploaded field fantasy average) / 4.1 (or edited divisor). Fair odds use a normal approximation. Missing or invalid standard deviations use the tournament default (initially 3.00). These are full-round, pre-round model probabilities; they do not account for holes already completed.</p></div>
-<div class="foot">Version 6.2 keeps DataGolf projections, tee times, tournament StDevs and four sportsbook odds in this browser. Supabase sync is not yet connected; data is not shared across devices.</div>
+<div class="foot">Version 7 supports optional Supabase cloud sync. Your browser remains the local backup; confirm the first upload or download before enabling automatic sync.</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
 const INITIAL=[{"name": "Wyndham Clark", "dg": 43.7, "sd": 3.61, "n": 245}, {"name": "Benjamin James", "dg": 44.8, "sd": 2.86, "n": 50}, {"name": "Tom Kim", "dg": 43.9, "sd": 3.42, "n": 253}, {"name": "Johnny Keefer", "dg": 41.9, "sd": 4.26, "n": 94}, {"name": "Doug Ghim", "dg": 44.0, "sd": 2.96, "n": 239}, {"name": "Blades Brown", "dg": 41.4, "sd": 2.99, "n": 59}, {"name": "Marco Penge", "dg": 42.2, "sd": 3.0, "n": 217}, {"name": "Ben Griffin", "dg": 44.9, "sd": 3.05, "n": 302}, {"name": "Corey Conners", "dg": 44.4, "sd": 2.94, "n": 258}, {"name": "Zachary Bauchou", "dg": 42.6, "sd": null, "n": null}, {"name": "Max Homa", "dg": 42.3, "sd": 3.43, "n": 231}, {"name": "Harry Hall", "dg": 42.0, "sd": 2.79, "n": 276}, {"name": "Jackson Suber", "dg": 41.3, "sd": 4.13, "n": 146}, {"name": "Jordan L. Smith", "dg": 42.0, "sd": null, "n": null}, {"name": "Rico Hoey", "dg": 42.7, "sd": 3.39, "n": 268}, {"name": "Neal Shipley", "dg": 41.4, "sd": 2.97, "n": 97}, {"name": "David Ford", "dg": 42.3, "sd": 3.0, "n": 70}, {"name": "Christiaan Bezuidenhout", "dg": 40.4, "sd": 2.98, "n": 264}, {"name": "Luke Clanton", "dg": 39.8, "sd": 3.02, "n": 140}, {"name": "Mac Meissner", "dg": 40.2, "sd": 2.8, "n": 231}, {"name": "Andrew Novak", "dg": 43.6, "sd": 3.33, "n": 254}, {"name": "Trace Crowe", "dg": 41.7, "sd": 2.41, "n": 120}, {"name": "Kevin Yu", "dg": 40.6, "sd": 3.08, "n": 239}, {"name": "Zac Blair", "dg": 39.0, "sd": 3.08, "n": 195}, {"name": "Keita Nakajima", "dg": 40.6, "sd": 3.35, "n": 186}, {"name": "Taylor Moore", "dg": 42.1, "sd": 3.0, "n": 231}, {"name": "Kevin Roy", "dg": 41.9, "sd": 3.27, "n": 165}, {"name": "Denny McCarthy", "dg": 40.6, "sd": 3.13, "n": 251}, {"name": "Rasmus Højgaard", "dg": 38.7, "sd": null, "n": null}, {"name": "Kihei Akina", "dg": 39.2, "sd": 2.3, "n": 16}, {"name": "Sudarshan Yellamaraju", "dg": 40.4, "sd": 1.29, "n": 81}, {"name": "Kris Ventura", "dg": 41.1, "sd": null, "n": null}, {"name": "Billy Horschel", "dg": 39.3, "sd": 3.29, "n": 216}, {"name": "Gordon Sargent", "dg": 40.2, "sd": 2.65, "n": 80}, {"name": "Pierceson Coody", "dg": 41.1, "sd": 3.12, "n": 219}, {"name": "Austin Eckroat", "dg": 41.5, "sd": 3.45, "n": 244}, {"name": "A.J. Ewart", "dg": 40.3, "sd": 1.41, "n": 72}, {"name": "John Parry", "dg": 39.3, "sd": 2.74, "n": 208}, {"name": "Jesper Svensson", "dg": 38.8, "sd": 3.35, "n": 247}, {"name": "Chan Kim", "dg": 38.1, "sd": 3.26, "n": 201}, {"name": "Emiliano Grillo", "dg": 40.4, "sd": 3.13, "n": 250}, {"name": "Rasmus Neergaard-Petersen", "dg": 41.1, "sd": 2.94, "n": 192}, {"name": "Lee Hodges", "dg": 40.9, "sd": 3.09, "n": 227}, {"name": "Patrick Rodgers", "dg": 40.9, "sd": 3.34, "n": 288}, {"name": "Steven Fisk", "dg": 41.5, "sd": 3.22, "n": 151}, {"name": "Alvaro Ortiz", "dg": 39.0, "sd": 5.51, "n": 10}, {"name": "Beau Hossler", "dg": 40.8, "sd": 3.22, "n": 249}, {"name": "Max Greyserman", "dg": 39.6, "sd": 3.4, "n": 250}, {"name": "Tony Finau", "dg": 40.6, "sd": 3.41, "n": 229}, {"name": "Mackenzie Hughes", "dg": 39.9, "sd": 3.37, "n": 252}, {"name": "Taylor Pendrith", "dg": 40.3, "sd": 3.25, "n": 238}, {"name": "Isaiah Salinda", "dg": 39.2, "sd": 2.5, "n": 102}, {"name": "Alejandro Tosti", "dg": 37.4, "sd": 3.58, "n": 186}, {"name": "Joel Dahmen", "dg": 39.1, "sd": 3.18, "n": 237}, {"name": "Patrick Fishburn", "dg": 39.4, "sd": 2.96, "n": 224}, {"name": "Danny Walker", "dg": 39.1, "sd": 3.56, "n": 132}, {"name": "Andrew Putnam", "dg": 36.6, "sd": 3.11, "n": 248}, {"name": "Karl Vilips", "dg": 38.2, "sd": 3.81, "n": 119}, {"name": "William Mouw", "dg": 39.2, "sd": 3.59, "n": 134}, {"name": "Chandler Phillips", "dg": 38.8, "sd": 2.9, "n": 227}, {"name": "Kevin Streelman", "dg": 37.5, "sd": 2.62, "n": 155}, {"name": "Max McGreevy", "dg": 39.1, "sd": 3.0, "n": 176}, {"name": "Chad Ramey", "dg": 39.7, "sd": 3.18, "n": 239}, {"name": "Chandler Blanchet", "dg": 38.5, "sd": 1.17, "n": 71}, {"name": "Takumi Kanaya", "dg": 38.8, "sd": 2.91, "n": 164}, {"name": "Cameron Davis", "dg": 37.2, "sd": null, "n": null}, {"name": "Ben Silverman", "dg": 37.7, "sd": 3.03, "n": 194}, {"name": "Hao-Tong Li", "dg": 38.6, "sd": null, "n": null}, {"name": "Adrien Dumont De Chassart", "dg": 38.7, "sd": 3.02, "n": 166}, {"name": "Aldrich Potgieter", "dg": 38.9, "sd": 3.48, "n": 134}, {"name": "Zecheng Dou", "dg": 39.5, "sd": 2.65, "n": 94}, {"name": "Justin Lower", "dg": 38.4, "sd": 3.46, "n": 234}, {"name": "Matthieu Pavon", "dg": 37.4, "sd": 3.62, "n": 247}, {"name": "Erik Van Rooyen", "dg": 39.5, "sd": 3.39, "n": 243}, {"name": "Hayden Springer", "dg": 38.5, "sd": 3.16, "n": 191}, {"name": "Davis Riley", "dg": 39.0, "sd": 3.56, "n": 222}, {"name": "John VanDerLaan", "dg": 39.3, "sd": 0.0, "n": 57}, {"name": "Dylan Wu", "dg": 37.9, "sd": 2.37, "n": 184}, {"name": "Nick Dunlap", "dg": 36.5, "sd": 4.1, "n": 199}, {"name": "David Skinns", "dg": 36.3, "sd": 3.2, "n": 202}, {"name": "David Lipsky", "dg": 38.3, "sd": 3.07, "n": 218}, {"name": "Ryder Cowan", "dg": 37.4, "sd": 0.0, "n": 6}, {"name": "Brian Campbell", "dg": 34.3, "sd": 3.3, "n": 134}, {"name": "Joe Highsmith", "dg": 36.5, "sd": 3.38, "n": 227}, {"name": "Peter Malnati", "dg": 37.4, "sd": 3.32, "n": 203}, {"name": "Mark Hubbard", "dg": 38.4, "sd": 3.13, "n": 274}, {"name": "Garrick Higgo", "dg": 36.3, "sd": 3.26, "n": 191}, {"name": "Harry Higgs", "dg": 36.5, "sd": 3.15, "n": 136}, {"name": "Paul Peterson", "dg": 37.1, "sd": 2.44, "n": 103}, {"name": "Ben Martin", "dg": 37.3, "sd": 2.73, "n": 125}, {"name": "Tyler Duncan", "dg": 37.4, "sd": 2.68, "n": 122}, {"name": "Davis Chatfield", "dg": 35.4, "sd": 2.37, "n": 58}, {"name": "Trent Phillips", "dg": 38.1, "sd": 2.85, "n": 10}, {"name": "Aaron Wise", "dg": 37.5, "sd": 3.04, "n": 46}, {"name": "Will Gordon", "dg": 35.2, "sd": 2.95, "n": 130}, {"name": "Hank Lebioda", "dg": 37.4, "sd": 1.16, "n": 63}, {"name": "Jeffrey Kang", "dg": 36.2, "sd": 0.93, "n": 51}, {"name": "Brice Garnett", "dg": 37.4, "sd": 2.84, "n": 167}, {"name": "Pontus Nyholm", "dg": 36.8, "sd": 1.68, "n": 61}, {"name": "Vince Whaley", "dg": 35.0, "sd": 2.66, "n": 235}, {"name": "Rafael Campos", "dg": 35.3, "sd": 3.25, "n": 189}, {"name": "Santiago De la Fuente", "dg": 36.0, "sd": 2.58, "n": 23}, {"name": "Adam Svensson", "dg": 36.2, "sd": 3.11, "n": 242}, {"name": "John Daly II", "dg": 33.1, "sd": 0.0, "n": 8}, {"name": "Patton Kizzire", "dg": 36.2, "sd": 3.23, "n": 179}, {"name": "Alejandro Fierro", "dg": 26.3, "sd": 0.0, "n": 0}, {"name": "Jimmy Stanger", "dg": 35.1, "sd": 1.03, "n": 89}, {"name": "Camilo Villegas", "dg": 34.6, "sd": 3.32, "n": 183}, {"name": "Garrett Endicott", "dg": 33.9, "sd": 0.0, "n": 0}, {"name": "Aaron Baddeley", "dg": 29.7, "sd": 2.96, "n": 124}, {"name": "Omar Morales", "dg": 34.5, "sd": 1.52, "n": 8}, {"name": "Marcelo Rozo", "dg": 32.9, "sd": 0.96, "n": 51}, {"name": "Cameron Tankersley", "dg": 33.6, "sd": 4.24, "n": 2}, {"name": "Kensei Hirata", "dg": 35.1, "sd": 2.93, "n": 69}, {"name": "Mauricio Figueroa", "dg": 30.0, "sd": 0.0, "n": 0}, {"name": "Tayler Termeer", "dg": 28.6, "sd": 0.0, "n": 0}, {"name": "Christo Lamprecht", "dg": 35.3, "sd": 3.41, "n": 69}, {"name": "Eli Ortego", "dg": 28.0, "sd": 0.0, "n": 0}, {"name": "Gerardo Gomez", "dg": 32.6, "sd": 0.71, "n": 2}];
 const ALIAS_KEY='gvm-v62-aliases';
@@ -75,8 +77,8 @@ const BOOKS=['DraftKings','FanDuel','Caesars','Fanatics'];
 for(const k of ['1','2','3','4']){let d=state[k];if(!d)continue;if(!d.books||typeof d.books!=='object')d.books={};if(d.odds&&Object.keys(d.odds).length&&!d.books.DraftKings)d.books.DraftKings={...d.odds};if(!d.bookUpdated)d.bookUpdated={};}
 let current='1';let sort='roi';
 function roundData(){return state[current]||(state[current]={players:[],books:{},bookUpdated:{},par:71,field:-1.30,divisor:4.1});}
-function persist(){localStorage.setItem(KEY,JSON.stringify(state));}
-function persistSd(){localStorage.setItem(SD_KEY,JSON.stringify(sdState));}
+function persist(){localStorage.setItem(KEY,JSON.stringify(state));cloudSchedule();}
+function persistSd(){localStorage.setItem(SD_KEY,JSON.stringify(sdState));cloudSchedule();}
 function getSd(p){let k=clean(p.name),alias=aliases[k]||k,rec=sdState.lookup[alias]||sdState.lookup[k];let val=Number(rec);return Number.isFinite(val)&&val>0?{sd:val,source:"Player-specific"}:{sd:Number(sdState.defaultSd)||3,source:"Default"};}
 function average(players){let a=players.map(p=>Number(p.dg)).filter(Number.isFinite);return a.length?a.reduce((x,y)=>x+y,0)/a.length:NaN;}
 function number(v){let n=Number(v);return Number.isFinite(n)?n:NaN;}
@@ -171,7 +173,7 @@ $('saveAlias').onclick=()=>{
  const canonical=clean(to);if(from===canonical){$('aliasMsg').textContent='These names already match.';return;}
  if(roundData().players.some(p=>clean(p.name)===from&&clean(p.name)!==canonical)){$('aliasMsg').textContent='That alternate name is already a different DataGolf player. Alias not saved.';return;}
  aliases[from]=canonical;
- const saved=JSON.parse(localStorage.getItem(ALIAS_KEY)||'{}');saved[from]=canonical;localStorage.setItem(ALIAS_KEY,JSON.stringify(saved));
+ const saved=JSON.parse(localStorage.getItem(ALIAS_KEY)||'{}');saved[from]=canonical;localStorage.setItem(ALIAS_KEY,JSON.stringify(saved));cloudSchedule();
  $('aliasMsg').textContent='Saved: '+$('aliasFrom').value+' → '+to+'. Reimport affected sportsbook TSVs to apply the alias to previously unmatched odds.';
  updateQuality();updateSdStatus();render();
 };
@@ -342,5 +344,89 @@ async function msRefresh(){
 $('msConnect').onclick=msLogin;$('msChoose').onclick=()=>{msFolderStack=[];msBrowse(null)};$('msRefresh').onclick=msRefresh;
 $('msDisconnect').onclick=()=>{msToken='';msExpiry=0;sessionStorage.removeItem('gvm_ms_token');sessionStorage.removeItem('gvm_ms_expiry');msStatus('Disconnected for this browser session. Saved workbook selection retained.');};
 msAuthReturn();if(msToken&&Date.now()<msExpiry)msStatus('Microsoft session active. '+(msConfig.itemName?'Ready to refresh '+msConfig.itemName+'.':'Choose your workbook.'));
+
+
+// V7: browser-local data is authoritative until the user explicitly migrates.
+const CLOUD_CONFIG_KEY='gppb-v7-cloud-config';
+let cloudClient=null,cloudUser=null,cloudEnabled=false,cloudBusy=false,cloudTimer=null,cloudPending=false;
+function cloudMsg(s){$('cloudStatus').textContent=s;}
+function cloudConfig(){try{return JSON.parse(localStorage.getItem(CLOUD_CONFIG_KEY)||'{}')}catch{return {}}}
+function cloudSnapshot(){return {rounds:state,stdev:sdState,aliases:JSON.parse(localStorage.getItem(ALIAS_KEY)||'{}'),schema:7,exportedAt:new Date().toISOString()}}
+function cloudReady(){return !!(cloudClient&&cloudUser)}
+function cloudSchedule(){
+ if(!cloudEnabled||!cloudReady())return;
+ cloudPending=true;clearTimeout(cloudTimer);
+ cloudTimer=setTimeout(async()=>{if(!cloudPending)return;if(cloudBusy){cloudSchedule();return;}cloudPending=false;await cloudPush(false);},1600);
+}
+async function cloudConfigure(){
+ const url=$('cloudUrl').value.trim().replace(/\/$/,''),key=$('cloudKey').value.trim();
+ if(!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url)||!key.startsWith('sb_publishable_')){cloudMsg('Enter a valid Supabase project URL and publishable key.');return;}
+ if(!window.supabase?.createClient){cloudMsg('Supabase library did not load. Check internet access and refresh.');return;}
+ cloudEnabled=false;cloudUser=null;clearTimeout(cloudTimer);
+ localStorage.setItem(CLOUD_CONFIG_KEY,JSON.stringify({url,key,email:$('cloudEmail').value.trim()}));
+ cloudClient=window.supabase.createClient(url,key,{auth:{flowType:'pkce',detectSessionInUrl:true,autoRefreshToken:true,persistSession:true,storageKey:'gppb-v7-auth-'+new URL(url).hostname}});
+ cloudClient.auth.onAuthStateChange((event,session)=>{
+  cloudUser=session?.user||null;
+  if(event==='SIGNED_OUT'){cloudEnabled=false;cloudMsg('Signed out. Browser data remains available.');}
+  else if(cloudUser&&!cloudEnabled){cloudMsg('Signed in as '+cloudUser.email+'. Choose Upload or Load to initialize cloud sync.');}
+ });
+ const {data,error}=await cloudClient.auth.getSession();
+ if(error){cloudMsg('Connection error: '+error.message);return;}
+ cloudUser=data.session?.user||null;
+ cloudMsg(cloudUser?'Signed in as '+cloudUser.email+'. Choose Upload or Load to initialize cloud sync.':'Connection saved. Request a sign-in link below.');
+}
+async function cloudLogin(){
+ if(!cloudClient){cloudMsg('Save the project connection first.');return;}
+ const email=$('cloudEmail').value.trim();if(!/^\S+@\S+\.\S+$/.test(email)){cloudMsg('Enter a valid email address.');return;}
+ const {error}=await cloudClient.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname,shouldCreateUser:true}});
+ cloudMsg(error?'Sign-in failed: '+error.message:'Sign-in email sent to '+email+'. Open the link in this browser, then return to this section.');
+}
+async function cloudRead(){
+ const {data,error}=await cloudClient.from('user_board_state').select('board_data,updated_at').eq('user_id',cloudUser.id).maybeSingle();
+ if(error)throw new Error(error.message);
+ const {data:pref,error:prefError}=await cloudClient.from('user_preferences').select('preferences').eq('user_id',cloudUser.id).maybeSingle();
+ if(prefError)throw new Error(prefError.message);
+ return {data,preferences:pref?.preferences||{}};
+}
+async function cloudPush(manual){
+ if(!cloudReady()){cloudMsg('Sign in first.');return;}
+ if(cloudBusy){cloudPending=true;return;}
+ cloudBusy=true;
+ try{
+  if(manual){const existing=await cloudRead();if(existing.data?.board_data?.rounds&&!confirm('Cloud data already exists. Replace it with the data currently in THIS browser?')){cloudMsg('Upload cancelled. Cloud data unchanged.');return;}}
+  const snap=cloudSnapshot();
+  const {error}=await cloudClient.from('user_board_state').upsert({user_id:cloudUser.id,board_data:{rounds:snap.rounds,stdev:snap.stdev,schema:7},updated_at:new Date().toISOString()},{onConflict:'user_id'});
+  if(error)throw new Error(error.message);
+  const {error:prefError}=await cloudClient.from('user_preferences').upsert({user_id:cloudUser.id,preferences:{aliases:snap.aliases},updated_at:new Date().toISOString()},{onConflict:'user_id'});
+  if(prefError)throw new Error(prefError.message);
+  cloudEnabled=true;cloudMsg('Cloud saved at '+new Date().toLocaleTimeString()+'. Automatic sync active.');
+ }catch(e){cloudEnabled=false;cloudMsg('Cloud save failed: '+e.message+'. Local data remains intact; auto sync paused.');}
+ finally{cloudBusy=false;if(cloudPending&&cloudEnabled)cloudSchedule();}
+}
+async function cloudPull(){
+ if(!cloudReady()){cloudMsg('Sign in first.');return;}
+ cloudEnabled=false;clearTimeout(cloudTimer);cloudBusy=true;
+ try{
+  const found=await cloudRead(),remote=found.data?.board_data;
+  if(!remote?.rounds){cloudMsg('No cloud board found yet. Use Upload on the computer holding your existing board.');return;}
+  if(!confirm('Replace this browser’s current projections, sportsbook odds, and StDevs with the saved cloud version? This cannot be undone from the dashboard.')){cloudMsg('Cloud download cancelled.');return;}
+  if(!remote.rounds||typeof remote.rounds!=='object'||!remote.stdev||typeof remote.stdev!=='object')throw new Error('Cloud record is incomplete.');
+  state=remote.rounds;sdState=remote.stdev;
+  const remoteAliases=found.preferences.aliases||{};
+  localStorage.setItem(KEY,JSON.stringify(state));localStorage.setItem(SD_KEY,JSON.stringify(sdState));
+  localStorage.setItem(ALIAS_KEY,JSON.stringify(remoteAliases));
+  for(const k of Object.keys(aliases))delete aliases[k];Object.assign(aliases,remoteAliases);
+  current='1';$('round').value='1';updateControls();updateSdStatus();updateQuality();
+  cloudEnabled=true;cloudMsg('Cloud data loaded at '+new Date().toLocaleTimeString()+'. Automatic sync active.');
+ }catch(e){cloudMsg('Cloud load failed: '+e.message+'. Local data was not intentionally replaced.');}
+ finally{cloudBusy=false;}
+}
+$('cloudConfigure').onclick=cloudConfigure;
+$('cloudLogin').onclick=cloudLogin;
+$('cloudUpload').onclick=()=>cloudPush(true);
+$('cloudDownload').onclick=cloudPull;
+$('cloudPause').onclick=()=>{cloudEnabled=false;clearTimeout(cloudTimer);cloudMsg('Automatic sync paused. Browser data remains available.');};
+$('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);if(cloudClient)await cloudClient.auth.signOut();cloudUser=null;cloudMsg('Signed out. Browser data remains available.');};
+(function(){const c=cloudConfig();if(c.url&&c.key){$('cloudUrl').value=c.url;$('cloudKey').value=c.key;$('cloudEmail').value=c.email||'';cloudConfigure();}})();
 
 </script></body></html>

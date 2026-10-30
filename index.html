@@ -40,6 +40,20 @@
 .gvm-tab-panel[hidden]{display:none!important}
 .gvm-sync-mini{margin-left:auto;color:#93a7c0;font-size:12px;max-width:330px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:700px){.gvm-tabs{gap:6px}.gvm-tab{flex:1 1 auto;padding:10px 8px;font-size:12px}.gvm-sync-mini{flex:1 0 100%;max-width:100%;margin-left:0}}
+
+/* V7.4.1: portrait/mobile board — only player names remain frozen. */
+@media (max-width:700px){
+  .board-wrap{width:100%;max-width:100%;overflow-x:auto;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;overscroll-behavior-x:contain}
+  .board-table .player-col{left:0;width:122px;min-width:122px;max-width:122px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .board-table td.player-col{max-width:122px}
+  .board-table .tee-col,.board-table .proj-col{position:static;left:auto;z-index:auto}
+  .board-table th.tee-col,.board-table th.proj-col{position:sticky;top:0;z-index:4}
+  .board-table .player-col{position:sticky;left:0;z-index:5}
+  .board-table th.player-col{z-index:9}
+  .board-table .subhead th.tee-col,.board-table .subhead th.proj-col{top:36px}
+  .board-table .tee-col{min-width:92px;width:92px}
+  .board-table .proj-col{min-width:95px;width:95px}
+}
 </style></head><body><div class="wrap">
 <header><div><h1>⛳ Golf Player Prop Board</h1><div class="sub">DataGolf projections · spreadsheet-style four-book odds board · player-specific StDev</div></div><span class="tag">Manual odds updates · no live feed</span></header>
 <div class="panel" style="margin-top:18px"><h2>Round &amp; scoring model</h2><div class="model-grid">

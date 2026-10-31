@@ -31,6 +31,8 @@
 .board-table tbody tr:hover td.frozen{background:#24364d}
 .filter-wrap{display:flex;gap:10px;align-items:end;flex-wrap:wrap}
 [hidden]{display:none!important}
+#gvm-panel-bob>.panel{padding:13px}#gvm-panel-bob .board-table th,#gvm-panel-bob .board-table td{padding:6px 8px}
+@media(max-width:700px){#gvm-panel-bob .board-table .player-col{width:112px;min-width:112px;max-width:112px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#gvm-panel-bob .board-table .tee-col,#gvm-panel-bob .board-table .proj-col{position:static;left:auto;z-index:auto}#gvm-panel-bob .board-table .player-col{position:sticky;left:0;z-index:5}#gvm-panel-bob .board-table th.player-col{z-index:9}}
 </style><style>
 /* V7.4: uncluttered three-tab navigation */
 .gvm-tabs{display:flex;gap:9px;flex-wrap:wrap;margin:18px 0 16px;align-items:center}
@@ -55,33 +57,85 @@
   .board-table .proj-col{min-width:95px;width:95px}
 }
 .gvm-board-round{display:flex;flex-direction:column;gap:5px;color:var(--muted);font-size:12px;margin-left:auto}.gvm-board-round select{min-width:112px;padding:8px 10px}.panelhead:has(.gvm-board-round) #count{margin-left:0}@media(max-width:700px){.gvm-board-round{margin-left:0}.panelhead:has(.gvm-board-round){align-items:end}}
-</style></head><body><div class="wrap">
-<header><div><h1>⛳ Golf Player Prop Board</h1><div class="sub">DataGolf projections · spreadsheet-style four-book odds board · player-specific StDev</div></div><span class="tag">Manual odds updates · no live feed</span></header>
+
+/* V7.5 compact board, sortable columns and portrait improvements */
+.summary{margin:12px 0;gap:9px}.stat{padding:10px 13px}.stat small{margin-bottom:3px}.stat strong{font-size:20px}
+#gvm-panel-board>.panel{padding:13px}.board-table th,.board-table td{padding:6px 8px}
+.gvm-board-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px}
+.gvm-board-tools label{flex-direction:row;align-items:center;gap:7px;font-size:13px}
+.gvm-board-tools select{padding:7px 9px;max-width:230px}
+.gvm-sort-hint{font-size:11px;color:var(--muted)}
+.board-table th.gvm-sortable{cursor:pointer;user-select:none}
+.board-table th.gvm-sortable:hover{background:#34506e}
+.board-table th.gvm-sortable:focus-visible{outline:2px solid #7db8ff;outline-offset:-2px}
+.gvm-backup-controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:10px}
+.gvm-backup-controls input[type=file]{max-width:300px}
+@media(max-width:700px){
+ .summary{gap:7px;margin:9px 0}.stat{padding:8px 10px}.stat strong{font-size:18px}
+ .board-table .player-col{width:112px;min-width:112px;max-width:112px}
+ .board-table td.player-col{max-width:112px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .board-table th,.board-table td{padding:6px 7px}
+ .gvm-board-round{margin-left:auto}.gvm-board-round select{padding:7px 8px}
+ .gvm-board-tools{gap:7px}.gvm-board-tools select{max-width:180px}
+ #gvm-panel-board .toolbar{gap:7px}#gvm-panel-board input[type=search]{min-width:110px;width:150px}
+ .board-wrap{scrollbar-width:thin}
+}
+/* V7.7 Tournament History */
+#historyGrid{max-height:66vh}#historyGrid table{width:max-content;min-width:100%;font-size:12px}#historyGrid th,#historyGrid td{padding:8px 10px;border-right:1px solid #2d4058}#historyGrid th{position:sticky;top:0;z-index:2;background:#233750}#historyGrid th:hover{background:#355273}#historyGrid .hist-player{position:sticky;left:0;z-index:3;background:#1c2c43;font-weight:650}#historyGrid th.hist-player{z-index:5}#historySummary{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin:12px 0}#historySummary .stat{padding:10px}#historySummary .stat strong{font-size:17px}#historyPanel .toolbar{margin:10px 0}#historyPanel .toolbar select{min-width:110px}#historyPanel .toolbar input[type=search]{min-width:150px}
+
+/* V7.8: click a player on either betting board to inspect cached tournament history */
+.gvm-history-link{background:none;border:0;padding:0;color:#b9dcff;font:inherit;font-weight:inherit;text-align:left;text-decoration:underline;text-decoration-color:#50779c;text-underline-offset:3px;cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gvm-history-link:hover{background:none;color:#fff;text-decoration-color:#fff}
+.gvm-history-link:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
+.gvm-modal[hidden]{display:none!important}.gvm-modal{position:fixed;inset:0;z-index:9999;background:rgba(3,8,17,.82);display:flex;align-items:center;justify-content:center;padding:18px}
+.gvm-modal-box{width:min(1120px,100%);max-height:min(85vh,850px);display:flex;flex-direction:column;background:#131e30;border:1px solid #55708e;border-radius:14px;box-shadow:0 20px 70px #0009;padding:17px;gap:12px}
+.gvm-modal-header{display:flex;justify-content:space-between;align-items:start;gap:12px}.gvm-modal-header h2{font-size:20px;margin:0 0 5px}
+.gvm-modal-stats{display:flex;gap:10px;flex-wrap:wrap}.gvm-modal-stats .stat{flex:1;min-width:110px;padding:10px}.gvm-modal-stats .stat strong{font-size:19px}
+.gvm-modal-table{overflow:auto;min-height:0}.gvm-modal-table table{min-width:900px;font-size:12px}.gvm-modal-table th,.gvm-modal-table td{padding:9px 10px;border-right:1px solid #2d4058}.gvm-modal-table th{position:sticky;top:0;background:#233750;z-index:2;cursor:pointer}
+body.gvm-modal-open{overflow:hidden}
+/* V8.2.11: Best Bets uses a compact, independent 8-column layout. */
+#gvm-panel-bestbets{min-width:0;max-width:100%}
+#gvm-panel-bestbets .panel{min-width:0;max-width:100%}
+#gvm-panel-bestbets .table-wrap{width:100%;max-width:100%;overflow-x:auto}
+#gvm-panel-bestbets #bestBetsTable{min-width:0;width:100%;table-layout:fixed;font-size:12px}
+#gvm-panel-bestbets #bestBetsTable th,#gvm-panel-bestbets #bestBetsTable td{padding:8px 7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#gvm-panel-bestbets #bestBetsTable th:nth-child(1){width:22%}
+#gvm-panel-bestbets #bestBetsTable th:nth-child(2){width:13%}
+#gvm-panel-bestbets #bestBetsTable th:nth-child(3){width:15%}
+#gvm-panel-bestbets #bestBetsTable th:nth-child(4){width:9%}
+#gvm-panel-bestbets #bestBetsTable th:nth-child(5){width:9%}
+#gvm-panel-bestbets #bestBetsTable th:nth-child(6){width:11%}
+#gvm-panel-bestbets #bestBetsTable th:nth-child(7){width:11%}
+#gvm-panel-bestbets #bestBetsTable th:nth-child(8){width:10%}
+#gvm-panel-bestbets #bestBetsTable th:first-child,#gvm-panel-bestbets #bestBetsTable td:first-child{text-align:left}
+@media(max-width:850px){#gvm-panel-bestbets #bestBetsTable{min-width:720px}}
+</style></head><body><div id="gvmHistoryModal" class="gvm-modal" hidden role="dialog" aria-modal="true" aria-labelledby="gvmHistoryTitle"><div class="gvm-modal-box"><div class="gvm-modal-header"><div><h2 id="gvmHistoryTitle">Player History</h2><div class="help" id="gvmHistorySubtitle">Historical rounds from the current OneDrive cache</div></div><button type="button" id="gvmHistoryClose" aria-label="Close player history">✕ Close</button></div><div id="gvmHistoryStats" class="gvm-modal-stats"></div><div id="gvmHistoryEmpty" class="empty" hidden>No Prior Rounds</div><div class="tablewrap gvm-modal-table" id="gvmHistoryTableWrap"><table><thead><tr id="gvmHistoryHeaders"></tr></thead><tbody id="gvmHistoryRows"></tbody></table></div></div></div><div class="wrap">
+<header><div><h1>⛳ Golf Player Prop Board</h1><div class="sub">DataGolf projections · spreadsheet-style four-book round-score board · player-specific StDev</div></div><span class="tag">Manual odds updates · no live feed</span></header>
 <div class="panel" style="margin-top:18px"><h2>Round &amp; scoring model</h2><div class="model-grid">
 <label>Tournament round<select id="round"><option value="1">Round 1</option><option value="2">Round 2</option><option value="3">Round 3</option><option value="4">Round 4</option></select></label>
 <label>Course par<select id="par"><option>70</option><option selected="">71</option><option>72</option></select></label>
 <label>My Round Scoring Prediction (to par)<input id="field" step="0.05" type="number" value="-1.30"/></label>
-<label>Fantasy-to-strokes divisor<input id="divisor" step="0.1" type="number" value="4.1"/></label>
+
 </div><div class="toolbar" style="margin-top:15px"><label>Upload DataGolf fantasy projections CSV<input accept=".csv,text/csv" id="dgfile" type="file"/></label><button id="resetModel">Reset model inputs</button></div>
 <p class="note">Rounds 1–3 use <code>total_points</code> (column L); Round 4 uses <code>scoring_points</code> (column I). Each upload replaces the selected round's DataGolf projections. You must update your own score-to-par prediction separately. No fixed player count.</p>
 <div class="status" id="dgstatus">Round 1 example CSV loaded. Upload a new CSV to refresh projections.</div></div>
 <div class="panel"><h2>Tournament scoring standard deviations</h2><div class="toolbar"><label>Upload player StDev Excel file (.xlsx) or CSV<input accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" id="sdfile" type="file"/></label><label>Default StDev<input id="defaultSd" min="0.01" step="0.05" style="width:90px" type="number" value="3.00"/></label><button id="clearSd">Clear uploaded StDevs</button></div><p class="note">Player names are read from column A and adjusted standard deviations from column D. Upload once per tournament; the values apply to all four rounds. Missing, blank, zero, or invalid values use the default 3.00 strokes. You can replace the file at any time.</p><div class="status" id="sdstatus">No tournament StDev file uploaded yet. Default 3.00 applies to every player.</div></div>
 <div class="panel" id="oneDrivePanel"><h2>OneDrive StDev Sync <span class="tag">V6.1</span></h2>
-<p class="note">Connect your personal Microsoft OneDrive using read-only Files.Read permission. Choose your Excel workbook once; V6.1 reads only the worksheet named <strong>PGA STDEV</strong> (column A = player, column D = StDev). Click Refresh after updating OneDrive. If the worksheet is missing, existing StDevs are preserved. Manual upload remains available.</p>
+<p class="note">Connect your personal Microsoft OneDrive using read-only Files.Read permission. Choose your Excel workbook once; V6.1 reads only the worksheet named <strong>PGA STDEV</strong> (column A = player, column D = StDev). Click Refresh after updating OneDrive. V7.6 also reads PGA BoB Bogey+ columns A–E for BoB/Bogey+ models. If the worksheet is missing, existing StDevs are preserved. Manual upload remains available.</p>
 <div class="toolbar" style="margin-top:12px"><label>Microsoft application (client) ID<input id="msClientId" style="width:340px;max-width:90vw" placeholder="Paste Application (client) ID" autocomplete="off"/></label><button id="msConnect" class="primary">Connect Microsoft OneDrive</button><button id="msDisconnect">Disconnect</button></div>
-<div class="toolbar" style="margin-top:12px"><button id="msChoose">Choose workbook</button><button id="msRefresh" class="primary">Refresh StDevs</button><span id="msSelected" class="help"></span></div>
+<div class="toolbar" style="margin-top:12px"><button id="msChoose">Choose workbook</button><button id="msRefresh" class="primary">Refresh StDevs + BoB models</button><span id="msSelected" class="help"></span></div>
 <div class="note" style="margin-top:8px">Worksheet: <strong>PGA STDEV</strong> · Name: A · Adjusted StDev: D</div><div id="msPreview" class="status" style="display:none;margin-top:8px"></div><div id="msBrowser" class="tablewrap" style="display:none;max-height:300px;overflow:auto;margin-top:10px"></div><div id="msStatus" class="status">Not connected.</div></div>
 <div class="panel" id="cloudPanel"><h2>Supabase Cloud Sync <span class="tag">V7.4</span></h2><p class="note">Your existing browser data stays untouched until you choose to upload or download it. Sign in by email, then make a one-time choice. After the first successful transfer, edits sync automatically while signed in.</p><div class="toolbar"><label>Supabase project URL<input id="cloudUrl" style="width:340px;max-width:90vw" placeholder="https://your-project.supabase.co"/></label><label>Supabase publishable key<input id="cloudKey" type="password" style="width:300px;max-width:90vw" placeholder="sb_publishable_..." autocomplete="off"/></label><button id="cloudConfigure">Save connection</button></div><div class="toolbar" style="margin-top:12px"><label>Sign-in email<input id="cloudEmail" type="email" placeholder="Your email address" autocomplete="email"/></label><button id="cloudLogin" class="primary">Email me a sign-in link</button><button id="cloudLogout">Sign out</button></div><div id="cloudStatus" class="status" aria-live="polite">Not connected. Your board is saved in this browser.</div><div class="toolbar" style="margin-top:12px"><button id="cloudUpload" class="primary">Upload this browser's data to cloud</button><button id="cloudDownload">Load cloud data into this browser</button><button id="cloudPause">Pause automatic sync</button></div><p class="note">First upload creates your cloud record only if none exists. If cloud data already exists, uploading requires an explicit overwrite confirmation. Downloading also asks before replacing local data. Microsoft OneDrive authentication tokens are never uploaded. Do not use a Supabase secret/service-role key.</p></div>
 <div class="summary"><div class="stat"><small>Players in selected CSV</small><strong id="nPlayers">—</strong></div><div class="stat"><small>DataGolf field fantasy average</small><strong id="dgAvg">—</strong></div><div class="stat"><small>Players with any odds</small><strong id="nOdds">—</strong></div><div class="stat"><small>Top expected ROI</small><strong id="bestROI">—</strong></div></div>
 <div class="panel" id="qualityPanel"><h2>Player matching &amp; data quality</h2><p class="note">Review missing StDevs and unmatched sportsbook names. Save an alias once to reuse it on future imports in this browser. Existing odds and projections are preserved.</p><div class="summary"><div class="stat"><small>Player-specific StDevs</small><strong id="qualitySd">—</strong></div><div class="stat"><small>Default StDev used</small><strong id="qualityDefault">—</strong></div><div class="stat"><small>Unmatched odds names</small><strong id="qualityOdds">—</strong></div><div class="stat"><small>Players with odds</small><strong id="qualityPriced">—</strong></div></div><details style="margin-top:12px"><summary>Players using default StDev</summary><p class="note" id="missingSdList">—</p></details><details style="margin-top:12px"><summary>Unmatched sportsbook names</summary><p class="note" id="unmatchedOddsList">—</p></details><div class="toolbar" style="margin-top:14px"><label>Unmatched / alternate player name<input id="aliasFrom" placeholder="e.g. Benjamin James"/></label><label>Match to DataGolf player<select id="aliasTo"><option value="">Select player</option></select></label><button id="saveAlias">Save player alias</button></div><p class="note" id="aliasMsg"></p><div class="toolbar"><label>Board minimum positive ROI to highlight (%)<input type="number" id="boardMinRoi" min="0" step="0.5" value="0" style="width:100px"/></label></div><p class="note">All players remain in DataGolf order. Below-threshold ROI cells remain visible without green highlighting.</p></div>
-<div class="panel"><h2>Sportsbook odds import</h2><p class="note">Select a sportsbook, then paste Gemini's four-column TSV (Player Name, Line, Over Odds, Under Odds). A new import replaces <strong>only that book's current-round board</strong>; unmatched names and invalid rows are reported. Other books and rounds remain intact.</p>
+<div class="panel"><h2>Round Score sportsbook odds import</h2><p class="note">Select a sportsbook, then paste Gemini's four-column TSV (Player Name, Line, Over Odds, Under Odds). A new import replaces <strong>only that book's current-round board</strong>; unmatched names and invalid rows are reported. Other books and rounds remain intact.</p>
 <div class="toolbar" style="margin-bottom:10px"><label>Sportsbook<select id="importBook"><option>DraftKings</option><option>FanDuel</option><option>Caesars</option><option>Fanatics</option></select></label><button id="clipboard">Paste from clipboard</button><span class="help" id="bookStatus"></span></div>
 <textarea id="paste" placeholder="Corey Conners	68.5	-146	+108"></textarea><div class="toolbar"><button class="primary" id="import">Import selected book's TSV</button><button id="clear">Clear selected book's odds</button><span class="help" id="importMsg"></span></div></div>
-<div class="panel"><div class="panelhead"><h2>Round-score odds screen</h2><span class="help" id="count"></span></div><div class="toolbar" style="margin-bottom:12px"><label>Screen<select id="screen"><option value="board">Full Odds Board</option><option value="best">Best Over + Best Under</option><option value="all">All Books / Offers</option></select></label><label>Find player<input id="search" placeholder="Search player…" type="search"/></label><div class="filter-wrap" id="offersFilters"><label class="offer-filter">Sportsbook<select id="bookFilter"><option value="all">All sportsbooks</option><option>DraftKings</option><option>FanDuel</option><option>Caesars</option><option>Fanatics</option></select></label><label class="offer-filter">Side<select id="side"><option value="all">Both sides</option><option value="over">Over only</option><option value="under">Under only</option></select></label><label class="offer-filter">Minimum ROI %<input id="minRoi" step="1" style="width:80px" type="number" value="-100"/></label><label class="offer-filter">Show<select id="view"><option value="priced">Priced offers</option><option value="edges">Positive ROI only</option><option value="all">Include unpriced players</option></select></label></div><button id="export">Export CSV</button></div>
+<div class="panel"><div class="panelhead"><h2>Round Score Board</h2><span class="help" id="count"></span></div><div class="toolbar" style="margin-bottom:12px"><select id="screen" hidden aria-label="Screen"><option value="board" selected>Full Round Score Board</option></select><label>Find player<input id="search" placeholder="Search player…" type="search"/></label><div class="filter-wrap" id="offersFilters"><label class="offer-filter">Sportsbook<select id="bookFilter"><option value="all">All sportsbooks</option><option>DraftKings</option><option>FanDuel</option><option>Caesars</option><option>Fanatics</option></select></label><label class="offer-filter">Side<select id="side"><option value="all">Both sides</option><option value="over">Over only</option><option value="under">Under only</option></select></label><label class="offer-filter">Minimum ROI %<input id="minRoi" step="1" style="width:80px" type="number" value="-100"/></label><label class="offer-filter">Show<select id="view"><option value="priced">Priced offers</option><option value="edges">Positive ROI only</option><option value="all">Include unpriced players</option></select></label></div><button id="export" hidden aria-hidden="true" tabindex="-1">Export CSV</button></div>
 <div class="tablewrap board-wrap" id="boardWrap"><table class="board-table"><thead><tr class="group-head"><th class="frozen player-col" rowspan="2">Player</th><th class="frozen tee-col" rowspan="2">Tee Time</th><th class="frozen proj-col" rowspan="2">Score Proj.</th><th class="group dk" colspan="7">DraftKings</th><th class="group fd" colspan="7">FanDuel</th><th class="group cz" colspan="7">Caesars</th><th class="group fn" colspan="7">Fanatics</th></tr><tr class="subhead"><th class="book-start">Line</th><th>Over</th><th>Fair O</th><th>O ROI</th><th>Under</th><th>Fair U</th><th>U ROI</th><th class="book-start">Line</th><th>Over</th><th>Fair O</th><th>O ROI</th><th>Under</th><th>Fair U</th><th>U ROI</th><th class="book-start">Line</th><th>Over</th><th>Fair O</th><th>O ROI</th><th>Under</th><th>Fair U</th><th>U ROI</th><th class="book-start">Line</th><th>Over</th><th>Fair O</th><th>O ROI</th><th>Under</th><th>Fair U</th><th>U ROI</th></tr></thead><tbody id="boardBody"></tbody></table></div><div class="tablewrap" id="offersWrap"><table><thead><tr><th>Player</th><th>Side</th><th>Sportsbook</th><th>Line</th><th>Book Odds</th><th>Fair Odds</th><th>Model %</th><th>Edge</th><th>Expected ROI ↓</th><th>Projected Strokes</th><th>To Par</th><th>StDev</th><th>StDev Source</th><th>DG Points</th></tr></thead><tbody id="body"></tbody></table></div>
 <p class="note" id="boardNote">Players stay in DataGolf CSV order. Tee times come from column F; a trailing * is removed. Scroll horizontally to compare all four books. Green ROI cells indicate positive modeled expected return. No Line means no imported offer for that player and book.</p><p class="note" id="offersNote">The Best screen chooses the highest-ROI <strong>Over and Under separately</strong> for each player. Different lines are priced independently. Odds are manual snapshots, not live feeds; the last import time for each sportsbook appears above.</p></div>
-<p class="note">Model: strokes = par + your field prediction − (player fantasy points − uploaded field fantasy average) / 4.1 (or edited divisor). Fair odds use a normal approximation. Missing or invalid standard deviations use the tournament default (initially 3.00). These are full-round, pre-round model probabilities; they do not account for holes already completed.</p></div>
-<div class="foot">Version 7.4 supports optional Supabase cloud sync. Your browser remains the local backup; confirm the first upload or download before enabling automatic sync.</div>
+<p class="note">Model: strokes = par + your field prediction − (player fantasy points − uploaded field fantasy average) / 4.1 (fixed divisor). Fair odds use a normal approximation. Missing or invalid standard deviations use the tournament default (initially 3.00). These are full-round, pre-round model probabilities; they do not account for holes already completed.</p></div>
+<div class="foot">Version 7.8 adds clickable player history to both betting boards and retains locally cached Tournament History and supports optional Supabase cloud sync. Your browser remains the local backup; confirm the first upload or download before enabling automatic sync.</div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
 const INITIAL=[{"name": "Wyndham Clark", "dg": 43.7, "sd": 3.61, "n": 245}, {"name": "Benjamin James", "dg": 44.8, "sd": 2.86, "n": 50}, {"name": "Tom Kim", "dg": 43.9, "sd": 3.42, "n": 253}, {"name": "Johnny Keefer", "dg": 41.9, "sd": 4.26, "n": 94}, {"name": "Doug Ghim", "dg": 44.0, "sd": 2.96, "n": 239}, {"name": "Blades Brown", "dg": 41.4, "sd": 2.99, "n": 59}, {"name": "Marco Penge", "dg": 42.2, "sd": 3.0, "n": 217}, {"name": "Ben Griffin", "dg": 44.9, "sd": 3.05, "n": 302}, {"name": "Corey Conners", "dg": 44.4, "sd": 2.94, "n": 258}, {"name": "Zachary Bauchou", "dg": 42.6, "sd": null, "n": null}, {"name": "Max Homa", "dg": 42.3, "sd": 3.43, "n": 231}, {"name": "Harry Hall", "dg": 42.0, "sd": 2.79, "n": 276}, {"name": "Jackson Suber", "dg": 41.3, "sd": 4.13, "n": 146}, {"name": "Jordan L. Smith", "dg": 42.0, "sd": null, "n": null}, {"name": "Rico Hoey", "dg": 42.7, "sd": 3.39, "n": 268}, {"name": "Neal Shipley", "dg": 41.4, "sd": 2.97, "n": 97}, {"name": "David Ford", "dg": 42.3, "sd": 3.0, "n": 70}, {"name": "Christiaan Bezuidenhout", "dg": 40.4, "sd": 2.98, "n": 264}, {"name": "Luke Clanton", "dg": 39.8, "sd": 3.02, "n": 140}, {"name": "Mac Meissner", "dg": 40.2, "sd": 2.8, "n": 231}, {"name": "Andrew Novak", "dg": 43.6, "sd": 3.33, "n": 254}, {"name": "Trace Crowe", "dg": 41.7, "sd": 2.41, "n": 120}, {"name": "Kevin Yu", "dg": 40.6, "sd": 3.08, "n": 239}, {"name": "Zac Blair", "dg": 39.0, "sd": 3.08, "n": 195}, {"name": "Keita Nakajima", "dg": 40.6, "sd": 3.35, "n": 186}, {"name": "Taylor Moore", "dg": 42.1, "sd": 3.0, "n": 231}, {"name": "Kevin Roy", "dg": 41.9, "sd": 3.27, "n": 165}, {"name": "Denny McCarthy", "dg": 40.6, "sd": 3.13, "n": 251}, {"name": "Rasmus Højgaard", "dg": 38.7, "sd": null, "n": null}, {"name": "Kihei Akina", "dg": 39.2, "sd": 2.3, "n": 16}, {"name": "Sudarshan Yellamaraju", "dg": 40.4, "sd": 1.29, "n": 81}, {"name": "Kris Ventura", "dg": 41.1, "sd": null, "n": null}, {"name": "Billy Horschel", "dg": 39.3, "sd": 3.29, "n": 216}, {"name": "Gordon Sargent", "dg": 40.2, "sd": 2.65, "n": 80}, {"name": "Pierceson Coody", "dg": 41.1, "sd": 3.12, "n": 219}, {"name": "Austin Eckroat", "dg": 41.5, "sd": 3.45, "n": 244}, {"name": "A.J. Ewart", "dg": 40.3, "sd": 1.41, "n": 72}, {"name": "John Parry", "dg": 39.3, "sd": 2.74, "n": 208}, {"name": "Jesper Svensson", "dg": 38.8, "sd": 3.35, "n": 247}, {"name": "Chan Kim", "dg": 38.1, "sd": 3.26, "n": 201}, {"name": "Emiliano Grillo", "dg": 40.4, "sd": 3.13, "n": 250}, {"name": "Rasmus Neergaard-Petersen", "dg": 41.1, "sd": 2.94, "n": 192}, {"name": "Lee Hodges", "dg": 40.9, "sd": 3.09, "n": 227}, {"name": "Patrick Rodgers", "dg": 40.9, "sd": 3.34, "n": 288}, {"name": "Steven Fisk", "dg": 41.5, "sd": 3.22, "n": 151}, {"name": "Alvaro Ortiz", "dg": 39.0, "sd": 5.51, "n": 10}, {"name": "Beau Hossler", "dg": 40.8, "sd": 3.22, "n": 249}, {"name": "Max Greyserman", "dg": 39.6, "sd": 3.4, "n": 250}, {"name": "Tony Finau", "dg": 40.6, "sd": 3.41, "n": 229}, {"name": "Mackenzie Hughes", "dg": 39.9, "sd": 3.37, "n": 252}, {"name": "Taylor Pendrith", "dg": 40.3, "sd": 3.25, "n": 238}, {"name": "Isaiah Salinda", "dg": 39.2, "sd": 2.5, "n": 102}, {"name": "Alejandro Tosti", "dg": 37.4, "sd": 3.58, "n": 186}, {"name": "Joel Dahmen", "dg": 39.1, "sd": 3.18, "n": 237}, {"name": "Patrick Fishburn", "dg": 39.4, "sd": 2.96, "n": 224}, {"name": "Danny Walker", "dg": 39.1, "sd": 3.56, "n": 132}, {"name": "Andrew Putnam", "dg": 36.6, "sd": 3.11, "n": 248}, {"name": "Karl Vilips", "dg": 38.2, "sd": 3.81, "n": 119}, {"name": "William Mouw", "dg": 39.2, "sd": 3.59, "n": 134}, {"name": "Chandler Phillips", "dg": 38.8, "sd": 2.9, "n": 227}, {"name": "Kevin Streelman", "dg": 37.5, "sd": 2.62, "n": 155}, {"name": "Max McGreevy", "dg": 39.1, "sd": 3.0, "n": 176}, {"name": "Chad Ramey", "dg": 39.7, "sd": 3.18, "n": 239}, {"name": "Chandler Blanchet", "dg": 38.5, "sd": 1.17, "n": 71}, {"name": "Takumi Kanaya", "dg": 38.8, "sd": 2.91, "n": 164}, {"name": "Cameron Davis", "dg": 37.2, "sd": null, "n": null}, {"name": "Ben Silverman", "dg": 37.7, "sd": 3.03, "n": 194}, {"name": "Hao-Tong Li", "dg": 38.6, "sd": null, "n": null}, {"name": "Adrien Dumont De Chassart", "dg": 38.7, "sd": 3.02, "n": 166}, {"name": "Aldrich Potgieter", "dg": 38.9, "sd": 3.48, "n": 134}, {"name": "Zecheng Dou", "dg": 39.5, "sd": 2.65, "n": 94}, {"name": "Justin Lower", "dg": 38.4, "sd": 3.46, "n": 234}, {"name": "Matthieu Pavon", "dg": 37.4, "sd": 3.62, "n": 247}, {"name": "Erik Van Rooyen", "dg": 39.5, "sd": 3.39, "n": 243}, {"name": "Hayden Springer", "dg": 38.5, "sd": 3.16, "n": 191}, {"name": "Davis Riley", "dg": 39.0, "sd": 3.56, "n": 222}, {"name": "John VanDerLaan", "dg": 39.3, "sd": 0.0, "n": 57}, {"name": "Dylan Wu", "dg": 37.9, "sd": 2.37, "n": 184}, {"name": "Nick Dunlap", "dg": 36.5, "sd": 4.1, "n": 199}, {"name": "David Skinns", "dg": 36.3, "sd": 3.2, "n": 202}, {"name": "David Lipsky", "dg": 38.3, "sd": 3.07, "n": 218}, {"name": "Ryder Cowan", "dg": 37.4, "sd": 0.0, "n": 6}, {"name": "Brian Campbell", "dg": 34.3, "sd": 3.3, "n": 134}, {"name": "Joe Highsmith", "dg": 36.5, "sd": 3.38, "n": 227}, {"name": "Peter Malnati", "dg": 37.4, "sd": 3.32, "n": 203}, {"name": "Mark Hubbard", "dg": 38.4, "sd": 3.13, "n": 274}, {"name": "Garrick Higgo", "dg": 36.3, "sd": 3.26, "n": 191}, {"name": "Harry Higgs", "dg": 36.5, "sd": 3.15, "n": 136}, {"name": "Paul Peterson", "dg": 37.1, "sd": 2.44, "n": 103}, {"name": "Ben Martin", "dg": 37.3, "sd": 2.73, "n": 125}, {"name": "Tyler Duncan", "dg": 37.4, "sd": 2.68, "n": 122}, {"name": "Davis Chatfield", "dg": 35.4, "sd": 2.37, "n": 58}, {"name": "Trent Phillips", "dg": 38.1, "sd": 2.85, "n": 10}, {"name": "Aaron Wise", "dg": 37.5, "sd": 3.04, "n": 46}, {"name": "Will Gordon", "dg": 35.2, "sd": 2.95, "n": 130}, {"name": "Hank Lebioda", "dg": 37.4, "sd": 1.16, "n": 63}, {"name": "Jeffrey Kang", "dg": 36.2, "sd": 0.93, "n": 51}, {"name": "Brice Garnett", "dg": 37.4, "sd": 2.84, "n": 167}, {"name": "Pontus Nyholm", "dg": 36.8, "sd": 1.68, "n": 61}, {"name": "Vince Whaley", "dg": 35.0, "sd": 2.66, "n": 235}, {"name": "Rafael Campos", "dg": 35.3, "sd": 3.25, "n": 189}, {"name": "Santiago De la Fuente", "dg": 36.0, "sd": 2.58, "n": 23}, {"name": "Adam Svensson", "dg": 36.2, "sd": 3.11, "n": 242}, {"name": "John Daly II", "dg": 33.1, "sd": 0.0, "n": 8}, {"name": "Patton Kizzire", "dg": 36.2, "sd": 3.23, "n": 179}, {"name": "Alejandro Fierro", "dg": 26.3, "sd": 0.0, "n": 0}, {"name": "Jimmy Stanger", "dg": 35.1, "sd": 1.03, "n": 89}, {"name": "Camilo Villegas", "dg": 34.6, "sd": 3.32, "n": 183}, {"name": "Garrett Endicott", "dg": 33.9, "sd": 0.0, "n": 0}, {"name": "Aaron Baddeley", "dg": 29.7, "sd": 2.96, "n": 124}, {"name": "Omar Morales", "dg": 34.5, "sd": 1.52, "n": 8}, {"name": "Marcelo Rozo", "dg": 32.9, "sd": 0.96, "n": 51}, {"name": "Cameron Tankersley", "dg": 33.6, "sd": 4.24, "n": 2}, {"name": "Kensei Hirata", "dg": 35.1, "sd": 2.93, "n": 69}, {"name": "Mauricio Figueroa", "dg": 30.0, "sd": 0.0, "n": 0}, {"name": "Tayler Termeer", "dg": 28.6, "sd": 0.0, "n": 0}, {"name": "Christo Lamprecht", "dg": 35.3, "sd": 3.41, "n": 69}, {"name": "Eli Ortego", "dg": 28.0, "sd": 0.0, "n": 0}, {"name": "Gerardo Gomez", "dg": 32.6, "sd": 0.71, "n": 2}];
@@ -102,6 +156,7 @@ const BOOKS=['DraftKings','FanDuel','Caesars','Fanatics'];
 for(const k of ['1','2','3','4']){let d=state[k];if(!d)continue;if(!d.books||typeof d.books!=='object')d.books={};if(d.odds&&Object.keys(d.odds).length&&!d.books.DraftKings)d.books.DraftKings={...d.odds};if(!d.bookUpdated)d.bookUpdated={};}
 let current='1';let sort='roi';
 function roundData(){return state[current]||(state[current]={players:[],books:{},bookUpdated:{},par:71,field:-1.30,divisor:4.1});}
+let cloudClient=null,cloudUser=null,cloudEnabled=false,cloudBusy=false,cloudTimer=null,cloudPending=false;
 function persist(){localStorage.setItem(KEY,JSON.stringify(state));cloudSchedule();}
 function persistSd(){localStorage.setItem(SD_KEY,JSON.stringify(sdState));cloudSchedule();}
 function getSd(p){let k=clean(p.name),alias=aliases[k]||k,rec=sdState.lookup[alias]||sdState.lookup[k];let val=Number(rec);return Number.isFinite(val)&&val>0?{sd:val,source:"Player-specific"}:{sd:Number(sdState.defaultSd)||3,source:"Default"};}
@@ -114,7 +169,7 @@ function cdf(z){return .5*(1+erf(z/Math.SQRT2));}
 function fair(p){if(p<=0||p>=1)return '—';return p>=.5?'−'+Math.round(100*p/(1-p)):'+'+Math.round(100*(1-p)/p);}
 function roi(p,o){return p*(o>0?o/100:100/-o)-(1-p);}
 function pct(v){return (100*v).toFixed(1)+'%';}
-function projection(p){let d=roundData(),a=average(d.players),k=number(d.divisor),f=number(d.field),par=number(d.par);return Number.isFinite(a)&&Number.isFinite(k)&&k>0&&Number.isFinite(f)&&Number.isFinite(par)?par+f-(p.dg-a)/k:NaN;}
+function projection(p){let d=roundData(),a=average(d.players),k=4.1,f=number(d.field),par=number(d.par);return Number.isFinite(a)&&Number.isFinite(k)&&k>0&&Number.isFinite(f)&&Number.isFinite(par)?par+f-(p.dg-a)/k:NaN;}
 
 // Column F from DataGolf: a trailing * denotes hole 10, not part of the time.
 function parseTeeTime(raw){
@@ -135,6 +190,53 @@ function priceOffer(mu,sd,line,odds,side){
  return {prob,fair:fair(prob),roi:o===null?null:roi(prob,o)};
 }
 
+
+// V7.6: BoB models and odds live inside `state`, so existing cloud/backup paths carry them.
+const BOB_SHEET='PGA BoB Bogey+';
+function bobStore(){if(!state.bob||typeof state.bob!=='object')state.bob={models:{},odds:{}};state.bob.models??={};state.bob.odds??={};return state.bob;}
+function bobOdds(){const s=bobStore();s.odds[current]??={};return s.odds[current];}
+function bobModel(p){const m=bobStore().models;return m[playerKey(p.name)]||m[clean(p.name)]||null;}
+function bobMean(p){const m=bobModel(p),score=projection(p),par=Number(roundData().par);if(!m||!Number.isFinite(score)||!Number.isFinite(par))return NaN;return Math.max(0,Number(m.bobIntercept)+Number(m.bobCoefficient)*(score-par));}
+// Poisson count model: Under a half-integer line k+0.5 means X <= k.
+// Accumulate probabilities recursively to avoid factorial overflow.
+function bobUnderProbability(mu,line){
+ if(!Number.isFinite(mu)||mu<0||!Number.isFinite(line))return NaN;
+ const k=Math.floor(line);if(k<0)return 0;if(mu===0)return 1;
+ let term=Math.exp(-mu),sum=term;
+ for(let i=1;i<=k;i++){term*=mu/i;sum+=term;}
+ return Math.max(0,Math.min(1,sum));
+}
+function bobOffer(p,book){const rec=bobOdds()[book]?.[p.name],mu=bobMean(p);if(!rec||!Number.isFinite(mu))return null;const line=Number(rec.line);if(!Number.isFinite(line)||Math.abs(line%1)!==.5)return null;const under=bobUnderProbability(mu,line),over=1-under;const oddsO=parseOdds(rec.over),oddsU=parseOdds(rec.under);return {line,over,under,oddsO,oddsU,roiO:oddsO===null?null:roi(over,oddsO),roiU:oddsU===null?null:roi(under,oddsU)};}
+function bobBestROI(p){const a=BOOKS.flatMap(b=>{const o=bobOffer(p,b);return o?[o.roiO,o.roiU].filter(Number.isFinite):[];});return a.length?Math.max(...a):null;}
+function bobRender(){const body=$('bobBody');if(!body)return;const d=roundData(),query=clean($('bobSearch').value),sort=$('bobSort').value,positive=$('bobPositive').checked,dir=Number($('bobDirection').dataset.dir||1);let players=d.players.filter(p=>clean(p.name).includes(query)).filter(p=>!positive||(bobBestROI(p)??-Infinity)>0);const orig=new Map(d.players.map((p,i)=>[p,i]));if(sort!=='original')players.sort((a,b)=>{const val=p=>sort==='player'?p.name.toLowerCase():sort==='tee'?parseTeeTime(p.teeTime).minutes:sort==='roi'?bobBestROI(p):bobMean(p);const x=val(a),y=val(b);if(x==null||Number.isNaN(x))return y==null||Number.isNaN(y)?orig.get(a)-orig.get(b):1;if(y==null||Number.isNaN(y))return -1;return ((typeof x==='string'?x.localeCompare(y):x-y)*dir)||orig.get(a)-orig.get(b);});body.replaceChildren();
+ const matched=d.players.filter(p=>bobModel(p)).length,priced=d.players.filter(p=>BOOKS.some(b=>bobOffer(p,b))).length;
+ $('bobSummary').textContent=matched+' / '+d.players.length+' players with coefficients · '+priced+' with BoB odds · Poisson pricing';$('bobRound').value=current;$('bobCount').textContent=players.length+' players';
+ for(const p of players){const tr=document.createElement('tr'),mu=bobMean(p);const add=(value,cls='',title='')=>{const td=document.createElement('td');td.textContent=value;td.className=cls;if(title)td.title=title;tr.appendChild(td);};add(p.name,'player frozen player-col',p.name);gvmMakePlayerClickable(tr.lastElementChild,p.name);add(parseTeeTime(p.teeTime).label,'num frozen tee-col');add(Number.isFinite(mu)?mu.toFixed(2):'No model','num frozen proj-col');for(const b of BOOKS){const o=bobOffer(p,b);if(!o){add('No Line','no-line book-start');for(let i=0;i<6;i++)add('','blank');continue;}add(o.line.toFixed(1),'num book-start line-cell');add(moneyOdds(o.oddsO),'num');add(fair(o.over),'num fair-odds');add(o.roiO===null?'—':(o.roiO>=0?'+':'')+pct(o.roiO),roiClass(o.roiO));add(moneyOdds(o.oddsU),'num');add(fair(o.under),'num fair-odds');add(o.roiU===null?'—':(o.roiU>=0?'+':'')+pct(o.roiU),roiClass(o.roiU));}body.appendChild(tr);}
+ if(!players.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=31;td.className='empty';td.textContent='No matching players. Check the search or filter.';tr.appendChild(td);body.appendChild(tr);}
+}
+// V8.1: Bogey+ uses the validated Poisson count pricing model.
+// V8.2: Pars derived from the existing BoB and Bogey+ projections.
+function parsStore(){const b=bobStore();b.parsOdds??={};b.parsOdds[current]??={};return b.parsOdds[current];}
+function parsMean(p){const birdies=bobMean(p),bogeys=bogeyMean(p);return Number.isFinite(birdies)&&Number.isFinite(bogeys)?Math.max(0,Math.min(18,18-birdies-bogeys)):NaN;}
+function parsUnderProbability(mu,line){if(!Number.isFinite(mu)||mu<0||mu>18)return NaN;const k=Math.floor(line),p=mu/18;if(k<0)return 0;if(k>=18)return 1;if(p===0)return 1;if(p===1)return 0;let term=Math.pow(1-p,18),sum=term;for(let i=1;i<=k;i++){term*=(19-i)/i*p/(1-p);sum+=term;}return Math.max(0,Math.min(1,sum));}
+function parsOffer(p,book){const rec=parsStore()[book]?.[p.name],mu=parsMean(p);if(!rec||!Number.isFinite(mu))return null;const line=Number(rec.line);if(!Number.isFinite(line)||Math.abs(line%1)!==.5)return null;const under=parsUnderProbability(mu,line),over=1-under,oddsO=parseOdds(rec.over),oddsU=parseOdds(rec.under);return {line,over,under,oddsO,oddsU,roiO:oddsO===null?null:roi(over,oddsO),roiU:oddsU===null?null:roi(under,oddsU)};}
+function parsBestROI(p){const a=BOOKS.flatMap(b=>{const o=parsOffer(p,b);return o?[o.roiO,o.roiU].filter(Number.isFinite):[];});return a.length?Math.max(...a):null;}
+function parsRender(){const body=$('parsBody');if(!body)return;const d=roundData(),query=clean($('parsSearch').value),sort=$('parsSort').value,positive=$('parsPositive').checked,dir=Number($('parsDirection').dataset.dir||1);let players=d.players.filter(p=>clean(p.name).includes(query)).filter(p=>!positive||(parsBestROI(p)??-Infinity)>0);const orig=new Map(d.players.map((p,i)=>[p,i]));if(sort!=='original')players.sort((a,b)=>{const val=p=>sort==='player'?p.name.toLowerCase():sort==='tee'?parseTeeTime(p.teeTime).minutes:sort==='roi'?parsBestROI(p):parsMean(p);const x=val(a),y=val(b);if(x==null||Number.isNaN(x))return y==null||Number.isNaN(y)?orig.get(a)-orig.get(b):1;if(y==null||Number.isNaN(y))return -1;return ((typeof x==='string'?x.localeCompare(y):x-y)*dir)||orig.get(a)-orig.get(b);});body.replaceChildren();
+ const matched=d.players.filter(p=>Number.isFinite(parsMean(p))).length,priced=d.players.filter(p=>BOOKS.some(b=>parsOffer(p,b))).length;
+ $('parsSummary').textContent=matched+' / '+d.players.length+' players with Pars projections · '+priced+' with Pars odds · Binomial pricing (18 holes)';$('parsRound').value=current;$('parsCount').textContent=players.length+' players';
+ for(const p of players){const tr=document.createElement('tr'),mu=parsMean(p);const add=(value,cls='',title='')=>{const td=document.createElement('td');td.textContent=value;td.className=cls;if(title)td.title=title;tr.appendChild(td);};add(p.name,'player frozen player-col',p.name);gvmMakePlayerClickable(tr.lastElementChild,p.name);add(parseTeeTime(p.teeTime).label,'num frozen tee-col');add(Number.isFinite(mu)?mu.toFixed(2):'No model','num frozen proj-col');for(const b of BOOKS){const o=parsOffer(p,b);if(!o){add('No Line','no-line book-start');for(let i=0;i<6;i++)add('','blank');continue;}add(o.line.toFixed(1),'num book-start line-cell');add(moneyOdds(o.oddsO),'num');add(fair(o.over),'num fair-odds');add(o.roiO===null?'—':(o.roiO>=0?'+':'')+pct(o.roiO),roiClass(o.roiO));add(moneyOdds(o.oddsU),'num');add(fair(o.under),'num fair-odds');add(o.roiU===null?'—':(o.roiU>=0?'+':'')+pct(o.roiU),roiClass(o.roiU));}body.appendChild(tr);}
+ if(!players.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=31;td.className='empty';td.textContent='No matching players. Check the search or filter.';tr.appendChild(td);body.appendChild(tr);}
+}
+function bogeyStore(){const b=bobStore();b.bogeyOdds??={};b.bogeyOdds[current]??={};return b.bogeyOdds[current];}
+function bogeyMean(p){const m=bobModel(p),score=projection(p),par=Number(roundData().par);if(!m||!Number.isFinite(score)||!Number.isFinite(par))return NaN;const mean=Number(m.bogeyIntercept)+Number(m.bogeyCoefficient)*(score-par);return Number.isFinite(mean)?Math.max(0,mean):NaN;}
+function bogeyOffer(p,book){const rec=bogeyStore()[book]?.[p.name],mu=bogeyMean(p);if(!rec||!Number.isFinite(mu))return null;const line=Number(rec.line);if(!Number.isFinite(line)||Math.abs(line%1)!==.5)return null;const under=bobUnderProbability(mu,line),over=1-under,oddsO=parseOdds(rec.over),oddsU=parseOdds(rec.under);return {line,over,under,oddsO,oddsU,roiO:oddsO===null?null:roi(over,oddsO),roiU:oddsU===null?null:roi(under,oddsU)};}
+function bogeyBestROI(p){const a=BOOKS.flatMap(b=>{const o=bogeyOffer(p,b);return o?[o.roiO,o.roiU].filter(Number.isFinite):[];});return a.length?Math.max(...a):null;}
+function bogeyRender(){const body=$('bogeyBody');if(!body)return;const d=roundData(),query=clean($('bogeySearch').value),sort=$('bogeySort').value,positive=$('bogeyPositive').checked,dir=Number($('bogeyDirection').dataset.dir||1);let players=d.players.filter(p=>clean(p.name).includes(query)).filter(p=>!positive||(bogeyBestROI(p)??-Infinity)>0);const orig=new Map(d.players.map((p,i)=>[p,i]));if(sort!=='original')players.sort((a,b)=>{const val=p=>sort==='player'?p.name.toLowerCase():sort==='tee'?parseTeeTime(p.teeTime).minutes:sort==='roi'?bogeyBestROI(p):bogeyMean(p);const x=val(a),y=val(b);if(x==null||Number.isNaN(x))return y==null||Number.isNaN(y)?orig.get(a)-orig.get(b):1;if(y==null||Number.isNaN(y))return -1;return ((typeof x==='string'?x.localeCompare(y):x-y)*dir)||orig.get(a)-orig.get(b);});body.replaceChildren();
+ const matched=d.players.filter(p=>bobModel(p)).length,priced=d.players.filter(p=>BOOKS.some(b=>bogeyOffer(p,b))).length;
+ $('bogeySummary').textContent=matched+' / '+d.players.length+' players with coefficients · '+priced+' with Bogey+ odds · Poisson pricing';$('bogeyRound').value=current;$('bogeyCount').textContent=players.length+' players';
+ for(const p of players){const tr=document.createElement('tr'),mu=bogeyMean(p);const add=(value,cls='',title='')=>{const td=document.createElement('td');td.textContent=value;td.className=cls;if(title)td.title=title;tr.appendChild(td);};add(p.name,'player frozen player-col',p.name);gvmMakePlayerClickable(tr.lastElementChild,p.name);add(parseTeeTime(p.teeTime).label,'num frozen tee-col');add(Number.isFinite(mu)?mu.toFixed(2):'No model','num frozen proj-col');for(const b of BOOKS){const o=bogeyOffer(p,b);if(!o){add('No Line','no-line book-start');for(let i=0;i<6;i++)add('','blank');continue;}add(o.line.toFixed(1),'num book-start line-cell');add(moneyOdds(o.oddsO),'num');add(fair(o.over),'num fair-odds');add(o.roiO===null?'—':(o.roiO>=0?'+':'')+pct(o.roiO),roiClass(o.roiO));add(moneyOdds(o.oddsU),'num');add(fair(o.under),'num fair-odds');add(o.roiU===null?'—':(o.roiU>=0?'+':'')+pct(o.roiU),roiClass(o.roiU));}body.appendChild(tr);}
+ if(!players.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=31;td.className='empty';td.textContent='No matching players. Check the search or filter.';tr.appendChild(td);body.appendChild(tr);}
+}
 function offers(p){let d=roundData(),mu=projection(p),sd=getSd(p).sd,out=[];if(!Number.isFinite(mu)||!Number.isFinite(sd)||sd<=0)return out;
  for(const book of BOOKS){let o=bookRecord(d,book,p);if(!o)continue;let line=number(o.line);if(!Number.isFinite(line)||Math.abs(line%1)!==.5)continue;let under=cdf((line-mu)/sd);
  for(const [side,prob,raw] of [['Under',under,o.under],['Over',1-under,o.over]]){let od=parseOdds(raw);if(od===null)continue;out.push({p,book,side,line,od,pr:prob,edge:prob-imp(od),roi:roi(prob,od),fair:fair(prob),mu,sd});}}
@@ -144,15 +246,26 @@ function rowsForScreen(){let d=roundData(),book=$('bookFilter').value,side=$('si
  if(view==='all'&&!arr.length)rows.push({p,book:'—',side:'—',line:null,od:null,pr:null,edge:null,roi:null,fair:'—',mu:projection(p),sd:getSd(p).sd});}
  return rows.filter(o=>(view!=='edges'||(o.roi!==null&&o.roi>0))&&(o.roi===null||o.roi>=min)).sort((a,b)=>(b.roi??-Infinity)-(a.roi??-Infinity)||a.p.name.localeCompare(b.p.name));}
 
+let gvmSortKey='original',gvmSortDir=1,gvmPositiveOnly=false;
+const gvmSortLabels={original:'DataGolf order',player:'player name',tee:'tee time',projection:'projected score',bestroi:'best ROI'};
+function gvmBestROI(p){const a=offers(p).filter(o=>o.roi!==null);return a.length?Math.max(...a.map(o=>o.roi)):null;}
+function gvmSortPlayers(players){
+ if(gvmSortKey==='original')return players;
+ const original=new Map(roundData().players.map((p,i)=>[p,i]));
+ const val=p=>gvmSortKey==='player'?p.name.toLowerCase():gvmSortKey==='tee'?parseTeeTime(p.teeTime).minutes:gvmSortKey==='projection'?projection(p):gvmBestROI(p);
+ players.sort((a,b)=>{const x=val(a),y=val(b);if(x===null||x===undefined||Number.isNaN(x))return y===null||y===undefined||Number.isNaN(y)?original.get(a)-original.get(b):1;if(y===null||y===undefined||Number.isNaN(y))return -1;const diff=typeof x==='string'?x.localeCompare(y):x-y;return diff*gvmSortDir||original.get(a)-original.get(b);});
+ return players;
+}
 function renderBoard(){
  const d=roundData(),query=clean($('search').value),body=$('boardBody');body.replaceChildren();
- const filtered=d.players.filter(p=>clean(p.name).includes(query));
- $('count').textContent=filtered.length+' players · DataGolf CSV order';
+ const filtered=d.players.filter(p=>clean(p.name).includes(query)).filter(p=>!gvmPositiveOnly||offers(p).some(o=>o.roi!==null&&o.roi>0));
+ gvmSortPlayers(filtered);
+ $('count').textContent=filtered.length+' players · '+(gvmSortKey==='original'?'DataGolf CSV order':'sorted by '+gvmSortLabels[gvmSortKey]);
  for(const p of filtered){
   const tr=document.createElement('tr'),mu=projection(p),sd=getSd(p).sd;
   const add=(value,cls='',tip='')=>{const td=document.createElement('td');td.textContent=value;td.className=cls;if(tip)td.title=tip;tr.appendChild(td);};
   const tee=p.teeTime?parseTeeTime(p.teeTime):{label:'—',minutes:null};
-  add(p.name,'player frozen player-col');add(tee.label,'num frozen tee-col',tee.minutes===null?'Unrecognized or missing tee time':'');
+  add(p.name,'player frozen player-col',p.name);gvmMakePlayerClickable(tr.lastElementChild,p.name);add(tee.label,'num frozen tee-col',tee.minutes===null?'Unrecognized or missing tee time':'');
   add(Number.isFinite(mu)?mu.toFixed(2):'—','num frozen proj-col');
   for(const book of BOOKS){
    const o=bookRecord(d,book,p);
@@ -175,10 +288,10 @@ function switchScreen(){const board=$('screen').value==='board';$('boardWrap').h
 
 function render(){let d=roundData(),a=average(d.players),all=d.players.flatMap(offers),rows=rowsForScreen();$('nPlayers').textContent=d.players.length;$('dgAvg').textContent=Number.isFinite(a)?a.toFixed(4):'—';$('nOdds').textContent=new Set(all.map(o=>o.p.name)).size;let rois=all.map(o=>o.roi);$('bestROI').textContent=rois.length?pct(Math.max(...rois)):'—';$('count').textContent=rows.length+' offers shown';
  let body=$('body');body.replaceChildren();if(!rows.length){body.innerHTML='<tr><td colspan="14" class="empty">No matching offers. Upload a DataGolf CSV, import sportsbook odds, or change filters.</td></tr>';}
- for(const o of rows){let tr=document.createElement('tr');function cell(t,cls=''){let td=document.createElement('td');td.textContent=t;td.className=cls;tr.appendChild(td);}cell(o.p.name,'player');cell(o.side);cell(o.book);cell(o.line??'—');cell(o.od===null?'—':(o.od>0?'+':'')+o.od);cell(o.fair);cell(o.pr===null?'—':pct(o.pr));cell(o.edge===null?'—':(o.edge>=0?'+':'')+pct(o.edge),o.edge>0?'edge':'loss');cell(o.roi===null?'—':(o.roi>=0?'+':'')+pct(o.roi),o.roi>0?'edge':'loss');cell(Number.isFinite(o.mu)?o.mu.toFixed(2):'—');cell(Number.isFinite(o.mu)?(o.mu-d.par).toFixed(2):'—');let st=getSd(o.p);cell(st.sd.toFixed(2));cell(st.source,st.source==='Default'?'warn':'ok');cell(Number(o.p.dg).toFixed(2));body.appendChild(tr);}
- switchScreen();if($('screen').value==='board')renderBoard();updateQuality();let statuses=BOOKS.map(b=>b+': '+(Object.keys(d.books?.[b]||{}).length)+' players'+(d.bookUpdated?.[b]?' · '+new Date(d.bookUpdated[b]).toLocaleString():''));$('bookStatus').textContent=statuses.join(' | ');
+ for(const o of rows){let tr=document.createElement('tr');function cell(t,cls=''){let td=document.createElement('td');td.textContent=t;td.className=cls;tr.appendChild(td);}cell(o.p.name,'player');gvmMakePlayerClickable(tr.lastElementChild,o.p.name);cell(o.side);cell(o.book);cell(o.line??'—');cell(o.od===null?'—':(o.od>0?'+':'')+o.od);cell(o.fair);cell(o.pr===null?'—':pct(o.pr));cell(o.edge===null?'—':(o.edge>=0?'+':'')+pct(o.edge),o.edge>0?'edge':'loss');cell(o.roi===null?'—':(o.roi>=0?'+':'')+pct(o.roi),o.roi>0?'edge':'loss');cell(Number.isFinite(o.mu)?o.mu.toFixed(2):'—');cell(Number.isFinite(o.mu)?(o.mu-d.par).toFixed(2):'—');let st=getSd(o.p);cell(st.sd.toFixed(2));cell(st.source,st.source==='Default'?'warn':'ok');cell(Number(o.p.dg).toFixed(2));body.appendChild(tr);}
+ switchScreen();if($('screen').value==='board')renderBoard();bobRender();bogeyRender();parsRender();updateQuality();let statuses=BOOKS.map(b=>b+': '+(Object.keys(d.books?.[b]||{}).length)+' players'+(d.bookUpdated?.[b]?' · '+new Date(d.bookUpdated[b]).toLocaleString():''));$('bookStatus').textContent=statuses.join(' | ');
 }
-function updateControls(){let d=roundData();const boardRound=document.getElementById('boardRound');if(boardRound)boardRound.value=current;$('par').value=String(d.par);$('field').value=d.field;$('divisor').value=d.divisor;let a=average(d.players);$('dgstatus').textContent=(d.uploaded||'No CSV uploaded')+' · '+d.players.length+' players · '+(current==='4'?'scoring_points (I)':'total_points (L)')+' · fantasy average '+(Number.isFinite(a)?a.toFixed(4):'—');render();}
+function updateControls(){let d=roundData();const boardRound=document.getElementById('boardRound');if(boardRound)boardRound.value=current;$('par').value=String(d.par);$('field').value=d.field;let a=average(d.players);$('dgstatus').textContent=(d.uploaded||'No CSV uploaded')+' · '+d.players.length+' players · '+(current==='4'?'scoring_points (I)':'total_points (L)')+' · fantasy average '+(Number.isFinite(a)?a.toFixed(4):'—');render();}
 
 function updateQuality(){
  const d=roundData(),players=d.players||[],missing=players.filter(p=>getSd(p).source==='Default');
@@ -204,14 +317,17 @@ $('saveAlias').onclick=()=>{
 };
 $('boardMinRoi').addEventListener('input',renderBoard);
 
-$('round').onchange=e=>{current=e.target.value;updateControls();updateSdStatus();};for(let id of ['par','field','divisor']){$(id).addEventListener('change',e=>{roundData()[id]=number(e.target.value);persist();render();});}
-$('resetModel').onclick=()=>{let d=roundData();d.par=71;d.field=-1.30;d.divisor=4.1;persist();updateControls();};
+function gvmMakePlayerClickable(td,name){td.replaceChildren();const b=document.createElement('button');b.type='button';b.className='gvm-history-link';b.textContent=name;b.title='View '+name+' tournament round history';b.addEventListener('click',()=>gvmOpenPlayerHistory(name));td.appendChild(b);}
+$('round').onchange=e=>{current=e.target.value;
+
+updateControls();updateSdStatus();};for(let id of ['par','field']){$(id).addEventListener('change',e=>{roundData()[id]=number(e.target.value);persist();render();});}
+$('resetModel').onclick=()=>{let d=roundData();d.par=71;d.field=-1.30;persist();updateControls();};
 // Quote-aware CSV parser; handles commas in DataGolf names.
 function csvParse(s){let out=[],row=[],val='',q=false;for(let i=0;i<s.length;i++){let c=s[i];if(q){if(c==='"'&&s[i+1]==='"'){val+='"';i++;}else if(c==='"')q=false;else val+=c;}else if(c==='"')q=true;else if(c===','){row.push(val);val='';}else if(c==='\n'){row.push(val.replace(/\r$/,''));out.push(row);row=[];val='';}else val+=c;}if(val.length||row.length){row.push(val.replace(/\r$/,''));out.push(row);}return out;}
 $('dgfile').onchange=async e=>{let file=e.target.files[0];if(!file)return;let rows=csvParse((await file.text()).replace(/^\uFEFF/,''));let head=rows.shift()?.map(s=>s.trim().toLowerCase());let ni=head?.indexOf('dk_name'),vi=head?.indexOf(current==='4'?'scoring_points':'total_points'),ti=head?.indexOf('r'+current+'_tee_time');if(ti<0)ti=head?.findIndex(h=>h.includes('tee_time'));if(ti<0)ti=5;if(ni<0||vi<0){$('dgstatus').textContent='Upload failed: missing dk_name or required '+(current==='4'?'scoring_points':'total_points')+' column.';return;}let found=new Set(),fresh=[],bad=0,dupe=0;for(let r of rows){let name=(r[ni]||'').trim(),dg=Number(r[vi]);if(!name||!r[vi]?.trim()||!Number.isFinite(dg)){bad++;continue;}let k=clean(name);if(found.has(k)){dupe++;continue;}found.add(k);let a=aliases[k]||k,st=sdLookup[a]||sdLookup[k]||{};fresh.push({name,dg,teeTime:(r[ti]||'').trim(),sd:st.sd??null,n:st.n??null});}if(!fresh.length){$('dgstatus').textContent='Upload failed: no valid player projections.';return;}let d=roundData();d.players=fresh;d.uploaded=file.name+' · '+new Date().toLocaleString();persist();updateControls();updateSdStatus();$('dgstatus').textContent+=' · '+bad+' invalid rows · '+dupe+' duplicates skipped';};
 $('import').onclick=()=>{let d=roundData(),book=$('importBook').value,map={};for(const p of d.players){map[clean(p.name)]=p.name;map[playerKey(p.name)]=p.name;}
  for(const [alias,target] of Object.entries(aliases)){if(map[target])map[alias]=map[target];}
- let ok=0,miss=[],bad=[],fresh={};for(const [i,line] of $('paste').value.split(/\r?\n/).entries()){if(!line.trim())continue;let cells=line.includes('\t')?line.split('\t'):csvParse(line)[0];cells=cells.map(s=>s.trim());if(cells.length!==4){bad.push(i+1);continue;}if(/^player( name)?$/i.test(cells[0]))continue;let name=map[playerKey(cells[0])]||map[clean(cells[0])];if(!name){miss.push(cells[0]);continue;}let l=Number(cells[1]),over=parseOdds(cells[2]),under=parseOdds(cells[3]);if(!Number.isFinite(l)||Math.abs(l%1)!==.5||over===null||under===null){bad.push(i+1);continue;}fresh[name]={line:String(l),over:String(over),under:String(under)};ok++;}
+ let ok=0,miss=[],bad=[],fresh={};for(const [i,line] of $('paste').value.split(/\r?\n/).entries()){if(!line.trim())continue;let cells=line.includes('\t')?line.split('\t'):line.includes(',')?csvParse(line)[0]:(()=>{const m=line.trim().match(/^(.*?)\s+(-?\d+(?:\.\d+)?)\s+([+\-−]\d+)\s+([+\-−]\d+)$/);return m?[m[1],m[2],m[3],m[4]]:[];})();cells=cells.map(s=>s.trim());if(cells.length!==4){bad.push(i+1);continue;}if(/^player( name)?$/i.test(cells[0]))continue;let name=map[playerKey(cells[0])]||map[clean(cells[0])];if(!name){miss.push(cells[0]);continue;}let l=Number(cells[1]),over=parseOdds(cells[2]),under=parseOdds(cells[3]);if(!Number.isFinite(l)||Math.abs(l%1)!==.5||over===null||under===null){bad.push(i+1);continue;}fresh[name]={line:String(l),over:String(over),under:String(under)};ok++;}
  unmatchedByRound[current]??={};unmatchedByRound[current][book]=miss; if(!ok){updateQuality();$('importMsg').textContent='No valid matched odds; existing '+book+' board was kept. '+(miss.length?'Unmatched: '+miss.slice(0,8).join(', '):'')+(bad.length?' · invalid rows: '+bad.join(', '):'');return;}
  d.books??={};d.bookUpdated??={};d.books[book]=fresh;d.bookUpdated[book]=new Date().toISOString();persist();render();updateQuality();$('importMsg').textContent=book+': '+ok+' imported (board replaced)'+(miss.length?' · unmatched: '+miss.slice(0,8).join(', '):'')+(bad.length?' · invalid rows: '+bad.join(', '):'');};
 $('clipboard').onclick=async()=>{try{$('paste').value=await navigator.clipboard.readText();$('importMsg').textContent='Clipboard pasted. Review and click Import selected book’s TSV.';}catch(e){$('importMsg').textContent='Clipboard permission unavailable. Use Ctrl+V in the box instead.';}};
@@ -290,6 +406,11 @@ async function parseXlsxStdev(file,sheetName=null){
  if(name&&clean(name)!=='player name'&&clean(name)!=='player'){out.push([name,sd]);}
  }return out;
 }
+function parseXlsxBobFromEntries(files){
+ const sheet=workbookSheetXml(files,BOB_SHEET),shared=files['xl/sharedStrings.xml']?nodesByLocal(xmlDoc(files['xl/sharedStrings.xml']),'si').map(si=>nodesByLocal(si,'t').map(n=>n.textContent).join('')):[];
+ const rows=[];for(const row of nodesByLocal(xmlDoc(sheet),'row')){const vals={};for(const cell of Array.from(row.children).filter(n=>n.localName==='c')){const col=(cell.getAttribute('r')||'').match(/^[A-Z]+/)?.[0];if(!['A','B','C','D','E'].includes(col))continue;let val=Array.from(cell.children).find(n=>n.localName==='v')?.textContent??'';if(cell.getAttribute('t')==='s')val=shared[Number(val)]??'';if(cell.getAttribute('t')==='inlineStr')val=nodesByLocal(cell,'t').map(n=>n.textContent).join('');vals[col]=val.trim();}if(vals.A&&clean(vals.A)!=='player')rows.push(vals);}return rows;
+}
+function applyBobRows(rows,source){const models={},seen=new Set();let invalid=0,duplicate=0;for(const r of rows){const k=clean(r.A);if(!k)continue;if(seen.has(k)){duplicate++;continue;}seen.add(k);const nums=['B','C','D','E'].map(col=>Number(r[col]));if(nums.some((n,i)=>!String(r[['B','C','D','E'][i]]??'').trim()||!Number.isFinite(n))){invalid++;continue;}models[k]={bobIntercept:nums[0],bobCoefficient:nums[1],bogeyIntercept:nums[2],bogeyCoefficient:nums[3]};}if(!Object.keys(models).length)throw Error('No valid model rows found in columns A–E. Existing models retained.');bobStore().models=models;bobStore().source=source;persist();bobRender();const matched=roundData().players.filter(p=>bobModel(p)).length;return Object.keys(models).length+' valid models · '+matched+'/'+roundData().players.length+' current-round players matched · '+invalid+' invalid · '+duplicate+' duplicates';}
 function parseCsvStdev(s){let rows=csvParse(s.replace(/^\uFEFF/,''));return rows.slice(1).map(r=>[r[0],r[3]]).filter(r=>r[0]);}
 function updateSdStatus(){let count=Object.keys(sdState.lookup).length,players=roundData().players,matched=players.filter(p=>getSd(p).source==='Player-specific').length;
  $('defaultSd').value=sdState.defaultSd;$('sdstatus').textContent=(sdState.uploaded||'No StDev file uploaded')+' · '+count+' valid player StDevs · '+matched+'/'+players.length+' selected-round players matched · '+(players.length-matched)+' using default '+Number(sdState.defaultSd).toFixed(2);
@@ -311,7 +432,7 @@ updateControls();updateSdStatus();
 
 // V6 OneDrive personal integration. OAuth authorization-code + PKCE, no client secret.
 const MS_SCOPE='Files.Read openid profile',MS_AUTH='https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize',MS_TOKEN='https://login.microsoftonline.com/consumers/oauth2/v2.0/token';
-const MS_REDIRECT=location.origin+location.pathname;
+const MS_REDIRECT=(['localhost','127.0.0.1'].includes(location.hostname))?location.origin+'/':location.origin+location.pathname;
 let msToken=sessionStorage.getItem('gvm_ms_token')||'',msExpiry=Number(sessionStorage.getItem('gvm_ms_expiry')||0);
 let msFolderStack=[];
 const msStored=()=>{try{return JSON.parse(localStorage.getItem('gvm_onedrive_config')||'{}')}catch{return {}}};
@@ -368,7 +489,9 @@ async function msRefresh(){
  const matched=roundData().players.filter(p=>[p.name,p.dkName,p.dgName].some(n=>n&&Object.prototype.hasOwnProperty.call(lookup,clean(n)))).length;
  sdState.lookup=lookup;sdState.uploaded='OneDrive: '+msConfig.itemName+' / '+ONEDRIVE_SD_SHEET+' · '+new Date().toLocaleString();persistSd();updateSdStatus();render();
  $('msPreview').style.display='block';$('msPreview').textContent='Imported from "'+ONEDRIVE_SD_SHEET+'" · '+Object.keys(lookup).length+' valid StDevs · '+matched+'/'+roundData().players.length+' current-round players directly matched · Preview: '+sample;
- msStatus('Refreshed '+Object.keys(lookup).length+' player StDevs from "'+ONEDRIVE_SD_SHEET+'" · '+invalid+' invalid · '+duplicate+' duplicate.');
+ let bobMessage='';try{const bobRows=parseXlsxBobFromEntries(await unzipEntries(buf));bobMessage=applyBobRows(bobRows,'OneDrive: '+msConfig.itemName+' / '+BOB_SHEET+' · '+new Date().toLocaleString());}catch(bobError){bobMessage='BoB models not updated: '+bobError.message;}
+ $('bobImportStatus').textContent=bobMessage;
+ msStatus('Refreshed '+Object.keys(lookup).length+' player StDevs from "'+ONEDRIVE_SD_SHEET+'" · '+invalid+' invalid · '+duplicate+' duplicate. '+bobMessage);
  }catch(e){msStatus('OneDrive refresh failed: '+e.message+' Your previously imported StDevs were not changed.');}
 }
 $('msConnect').onclick=msLogin;$('msChoose').onclick=()=>{msFolderStack=[];msBrowse(null)};$('msRefresh').onclick=msRefresh;
@@ -378,7 +501,7 @@ msAuthReturn();if(msToken&&Date.now()<msExpiry)msStatus('Microsoft session activ
 
 // V7: browser-local data is authoritative until the user explicitly migrates.
 const CLOUD_CONFIG_KEY='gppb-v7-cloud-config';
-let cloudClient=null,cloudUser=null,cloudEnabled=false,cloudBusy=false,cloudTimer=null,cloudPending=false;
+// Cloud runtime state is initialized above the board event handlers.
 const CLOUD_BASE_KEY='gppb-v73-synced-base';
 function cloudPayload(){const s=cloudSnapshot();return JSON.stringify({rounds:s.rounds,stdev:s.stdev,aliases:s.aliases});}
 function cloudBaseline(){try{return JSON.parse(localStorage.getItem(CLOUD_BASE_KEY)||'null')}catch{return null}}
@@ -513,40 +636,248 @@ $('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);i
  const sections=Array.from(wrap.children);
  const findHeading=(prefix)=>sections.find(el=>el.classList?.contains('panel')&&el.querySelector('h2')?.textContent.trim().startsWith(prefix));
  const groups={
-  board:[sections.find(el=>el.classList?.contains('summary')),findHeading('Round-score odds screen')],
-  setup:[findHeading('Round & scoring model'),findHeading('Tournament scoring standard deviations'),sections.find(el=>el.id==='qualityPanel'),findHeading('Sportsbook odds import')],
-  cloud:[sections.find(el=>el.id==='cloudPanel'),sections.find(el=>el.id==='oneDrivePanel')]
+  board:[findHeading('Round Score Board')],
+  setup:[findHeading('Round & scoring model'),findHeading('Tournament scoring standard deviations'),sections.find(el=>el.id==='qualityPanel')],
+  imports:[findHeading('Round Score sportsbook odds import')],
+  cloud:[sections.find(el=>el.id==='cloudPanel'),sections.find(el=>el.id==='oneDrivePanel')],
+  bestbets:[],bob:[],bogey:[],pars:[],history:[]
  };
  const nav=document.createElement('nav');nav.className='gvm-tabs';nav.setAttribute('aria-label','Dashboard sections');
  const panels={};const buttons={};
- const labels={board:'Odds Board',setup:'Setup & Imports',cloud:'Cloud & OneDrive'};
+ const labels={bestbets:'Best Bets',board:'Round Score Board',bob:'BoB Board',bogey:'Bogey+ Board',pars:'Pars Board',history:'Tournament History',setup:'Setup & Imports',imports:'Sportsbook Odds Import',cloud:'Cloud & OneDrive'};
  for(const key of Object.keys(labels)){
   const btn=document.createElement('button');btn.type='button';btn.className='gvm-tab';btn.textContent=labels[key];btn.id='gvm-tab-'+key;btn.setAttribute('role','tab');btn.setAttribute('aria-controls','gvm-panel-'+key);
   const panel=document.createElement('section');panel.id='gvm-panel-'+key;panel.className='gvm-tab-panel';panel.setAttribute('role','tabpanel');panel.setAttribute('aria-labelledby',btn.id);
   buttons[key]=btn;panels[key]=panel;nav.appendChild(btn);
   for(const el of groups[key].filter(Boolean))panel.appendChild(el);
  }
+ // V7.6: Separate BoB board with independent sportsbook odds, shared players/rounds.
+ const bobPanel=document.createElement('div');bobPanel.className='panel';
+ bobPanel.innerHTML=`<div class="panelhead"><h2>Birdies or Better (BoB) Board</h2><label class="gvm-board-round">Tournament round<select id="bobRound" aria-label="Tournament round on BoB Board"><option value="1">Round 1</option><option value="2">Round 2</option><option value="3">Round 3</option><option value="4">Round 4</option></select></label><span id="bobCount" class="help"></span></div>
+ <p class="note" id="bobSummary">No coefficients loaded. Refresh OneDrive or import a local workbook.</p>
+ <div class="gvm-board-tools"><label>Find player <input id="bobSearch" placeholder="Search player…"></label><label>Sort players <select id="bobSort"><option value="original">DataGolf CSV order</option><option value="player">Player name</option><option value="tee">Tee time</option><option value="projection">BoB projection</option><option value="roi">Best available ROI</option></select></label><button type="button" id="bobDirection" data-dir="1">Ascending ↑</button><label><input type="checkbox" id="bobPositive"> Positive ROI only</label></div>
+ <div class="tablewrap board-wrap"><table class="board-table"><thead><tr class="group-head"><th class="frozen player-col" rowspan="2">Player</th><th class="frozen tee-col" rowspan="2">Tee Time</th><th class="frozen proj-col" rowspan="2">BoB Proj.</th>${BOOKS.map((b,i)=>'<th class="group '+['dk','fd','cz','fn'][i]+'" colspan="7">'+b+'</th>').join('')}</tr><tr class="subhead">${BOOKS.map(()=>'<th class="book-start">Line</th><th>Over</th><th>Fair O</th><th>O ROI</th><th>Under</th><th>Fair U</th><th>U ROI</th>').join('')}</tr></thead><tbody id="bobBody"></tbody></table></div>
+ <p class="note">BoB projections use player coefficients × projected score to par. Fair odds use a Poisson count distribution with mean equal to the BoB projection. No fixed BoB standard deviation is used. Players without coefficients show “No model”.</p>`;
+ panels.bob.appendChild(bobPanel);
+ const bogeyPanel=document.createElement('div');bogeyPanel.className='panel';
+ bogeyPanel.innerHTML=`<div class="panelhead"><h2>Bogey+ Board</h2><label class="gvm-board-round">Tournament round<select id="bogeyRound" aria-label="Tournament round on Bogey+ Board"><option value="1">Round 1</option><option value="2">Round 2</option><option value="3">Round 3</option><option value="4">Round 4</option></select></label><span id="bogeyCount" class="help"></span></div>
+ <p class="note" id="bogeySummary">No coefficients loaded. Refresh OneDrive or import a local workbook.</p>
+ <div class="gvm-board-tools"><label>Find player <input id="bogeySearch" placeholder="Search player…"></label><label>Sort players <select id="bogeySort"><option value="original">DataGolf CSV order</option><option value="player">Player name</option><option value="tee">Tee time</option><option value="projection">Bogey+ projection</option><option value="roi">Best available ROI</option></select></label><button type="button" id="bogeyDirection" data-dir="1">Ascending ↑</button><label><input type="checkbox" id="bogeyPositive"> Positive ROI only</label></div>
+ <div class="tablewrap board-wrap"><table class="board-table"><thead><tr class="group-head"><th class="frozen player-col" rowspan="2">Player</th><th class="frozen tee-col" rowspan="2">Tee Time</th><th class="frozen proj-col" rowspan="2">Bogey+ Proj.</th>${BOOKS.map((b,i)=>'<th class="group '+['dk','fd','cz','fn'][i]+'" colspan="7">'+b+'</th>').join('')}</tr><tr class="subhead">${BOOKS.map(()=>'<th class="book-start">Line</th><th>Over</th><th>Fair O</th><th>O ROI</th><th>Under</th><th>Fair U</th><th>U ROI</th>').join('')}</tr></thead><tbody id="bogeyBody"></tbody></table></div>
+ <p class="note">Bogey+ projections use columns D and E from PGA BoB Bogey+ and projected score to par. Fair odds use Poisson count probabilities. Missing coefficients show “No model”.</p>`;
+ panels.bogey.appendChild(bogeyPanel);
+ const parsPanel=document.createElement('div');parsPanel.className='panel';
+ parsPanel.innerHTML=`<div class="panelhead"><h2>Pars Board</h2><label class="gvm-board-round">Tournament round<select id="parsRound" aria-label="Tournament round on Pars Board"><option value="1">Round 1</option><option value="2">Round 2</option><option value="3">Round 3</option><option value="4">Round 4</option></select></label><span id="parsCount" class="help"></span></div>
+ <p class="note" id="parsSummary">Pars projections are derived from BoB and Bogey+.</p>
+ <div class="gvm-board-tools"><label>Find player <input id="parsSearch" placeholder="Search player…"></label><label>Sort players <select id="parsSort"><option value="original">DataGolf CSV order</option><option value="player">Player name</option><option value="tee">Tee time</option><option value="projection">Pars projection</option><option value="roi">Best available ROI</option></select></label><button type="button" id="parsDirection" data-dir="1">Ascending ↑</button><label><input type="checkbox" id="parsPositive"> Positive ROI only</label></div>
+ <div class="tablewrap board-wrap"><table class="board-table"><thead><tr class="group-head"><th class="frozen player-col" rowspan="2">Player</th><th class="frozen tee-col" rowspan="2">Tee Time</th><th class="frozen proj-col" rowspan="2">Pars Proj.</th>${BOOKS.map((b,i)=>'<th class="group '+['dk','fd','cz','fn'][i]+'" colspan="7">'+b+'</th>').join('')}</tr><tr class="subhead">${BOOKS.map(()=>'<th class="book-start">Line</th><th>Over</th><th>Fair O</th><th>O ROI</th><th>Under</th><th>Fair U</th><th>U ROI</th>').join('')}</tr></thead><tbody id="parsBody"></tbody></table></div>
+ <p class="note">Pars = 18 − projected BoB − projected Bogey+. Projections are bounded to 0–18. Fair odds use Binomial(n=18, p=projected Pars/18); no StDev input is needed.</p>`;
+ panels.pars.appendChild(parsPanel);
+
+
+ const bobImport=document.createElement('div');bobImport.className='panel';bobImport.innerHTML=`<h2>BoB &amp; Bogey+ coefficient models</h2><p class="note">OneDrive workbook worksheet <strong>PGA BoB Bogey+</strong>: A Player, B BoB Intercept, C BoB Coefficient, D Bogey+ Intercept, E Bogey+ Coefficient. Refresh in Cloud &amp; OneDrive to update both sheets. Or import the same XLSX workbook locally for testing.</p><div class="toolbar"><label>Upload workbook (.xlsx)<input type="file" id="bobFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></label></div><p class="status" id="bobImportStatus">No coefficient models imported yet.</p><h3>BoB sportsbook odds import</h3><p class="note">Same four-column TSV as Round Score: Player Name, Line, Over Odds, Under Odds. Imports replace only the selected book's BoB odds for the current round.</p><div class="toolbar"><label>Sportsbook<select id="bobBook">${BOOKS.map(b=>'<option>'+b+'</option>').join('')}</select></label></div><textarea id="bobPaste" rows="5" placeholder="Doug Ghim&#9;4.5&#9;-110&#9;-110"></textarea><div class="toolbar"><button class="primary" id="bobImport">Import BoB odds</button><button id="bobClear">Clear selected book's BoB odds</button></div><p class="status" id="bobImportMsg"></p>`;
+ panels.setup.appendChild(bobImport);
+ // Keep coefficient upload in Setup; move only the BoB odds controls to the new import tab.
+ const bobOddsPanel=document.createElement('div');bobOddsPanel.className='panel';
+ let bobOddsHeading=bobImport.querySelector('h3');
+ bobOddsHeading.textContent='BoB sportsbook odds import';
+ while(bobOddsHeading){const next=bobOddsHeading.nextSibling;bobOddsPanel.appendChild(bobOddsHeading);if(!next)break; bobOddsHeading=next;}
+ panels.imports.appendChild(bobOddsPanel);
+ const bogeyImport=document.createElement('div');bogeyImport.className='panel';bogeyImport.innerHTML=`<h2>Bogey+ sportsbook odds import</h2><p class="note">Import Player Name, Line, Over Odds, Under Odds as four-column TSV. Bogey+ odds are independent of BoB and Round Score odds and saved in your existing board backup/cloud state.</p><div class="toolbar"><label>Sportsbook<select id="bogeyBook">${BOOKS.map(b=>'<option>'+b+'</option>').join('')}</select></label></div><textarea id="bogeyPaste" rows="5" placeholder="Doug Ghim&#9;2.5&#9;-110&#9;-110"></textarea><div class="toolbar"><button class="primary" id="bogeyImport">Import Bogey+ odds</button><button id="bogeyClear">Clear selected book's Bogey+ odds</button></div><p class="status" id="bogeyImportMsg"></p>`;
+ panels.imports.appendChild(bogeyImport);
+ const parsImport=document.createElement('div');parsImport.className='panel';parsImport.innerHTML=`<h2>Pars sportsbook odds import</h2><p class="note">Player Name, Line, Over Odds, Under Odds. Accepts tabs, commas, or spaces. Pars odds are saved separately for each round and sportsbook.</p><div class="toolbar"><label>Sportsbook<select id="parsBook">${BOOKS.map(b=>'<option>'+b+'</option>').join('')}</select></label></div><textarea id="parsPaste" rows="5" placeholder="Doug Ghim 11.5 -110 -110"></textarea><div class="toolbar"><button class="primary" id="parsImport">Import Pars odds</button><button id="parsClear">Clear selected book's Pars odds</button></div><p class="status" id="parsImportMsg"></p>`;
+ panels.imports.appendChild(parsImport);
+
+ // Render BoB after tab navigation is installed, so an error cannot hide every tab.
  // Keep a round selector visible on the Odds Board, linked to the original setup selector.
- const boardHeading=groups.board[1]?.querySelector('.panelhead');
+ const boardHeading=groups.board[0]?.querySelector('.panelhead');
  if(boardHeading){
   const selector=document.createElement('label');selector.className='gvm-board-round';selector.textContent='Tournament round';
   const boardRound=document.createElement('select');boardRound.id='boardRound';boardRound.setAttribute('aria-label','Tournament round on Odds Board');
   for(let i=1;i<=4;i++){const option=document.createElement('option');option.value=String(i);option.textContent='Round '+i;boardRound.appendChild(option);}
-  const setupRound=document.getElementById('round');boardRound.value=setupRound.value;
+  const setupRound=groups.setup[0]?.querySelector('#round');if(!setupRound)throw new Error('Round selector missing from Setup panel');boardRound.value=setupRound.value;
   boardRound.addEventListener('change',()=>{setupRound.value=boardRound.value;setupRound.dispatchEvent(new Event('change',{bubbles:true}));});
   setupRound.addEventListener('change',()=>{boardRound.value=setupRound.value;});
   selector.appendChild(boardRound);boardHeading.insertBefore(selector,boardHeading.querySelector('#count'));
  }
+ // V7.5: board-only controls. UI state stays local, never overwrites cloud data.
+ const boardPanel=groups.board[0];
+ if(boardPanel){
+  const toolbar=boardPanel.querySelector('.toolbar');
+  const controls=document.createElement('div');controls.className='gvm-board-tools';
+  controls.innerHTML='<label>Sort players <select id="gvmSort"><option value="original">DataGolf CSV order</option><option value="player">Player name</option><option value="tee">Tee time</option><option value="projection">Projected score</option><option value="bestroi">Best available ROI</option></select></label><button id="gvmSortDir" type="button" title="Reverse sorting direction">Ascending ↑</button><label><input id="gvmPositive" type="checkbox"> Positive ROI only</label><span class="gvm-sort-hint">Tip: click Player, Tee Time or Score Proj. headers to sort</span>';
+  toolbar?.insertAdjacentElement('afterend',controls);
+  const sortSelect=controls.querySelector('#gvmSort'),direction=controls.querySelector('#gvmSortDir');
+  const refreshSort=()=>{direction.textContent=gvmSortDir===1?'Ascending ↑':'Descending ↓';renderBoard();};
+  sortSelect.addEventListener('change',()=>{gvmSortKey=sortSelect.value;gvmSortDir=gvmSortKey==='bestroi'?-1:1;refreshSort();});
+  direction.addEventListener('click',()=>{gvmSortDir*=-1;refreshSort();});
+  controls.querySelector('#gvmPositive').addEventListener('change',e=>{gvmPositiveOnly=e.target.checked;renderBoard();});
+  const header=boardPanel.querySelector('.board-table .group-head');
+  if(header){const headers=header.querySelectorAll('th');[['player',0],['tee',1],['projection',2]].forEach(([key,index])=>{const th=headers[index];if(!th)return;th.classList.add('gvm-sortable');th.tabIndex=0;th.title='Sort by '+gvmSortLabels[key];const apply=()=>{gvmSortDir=gvmSortKey===key?-gvmSortDir:1;gvmSortKey=key;sortSelect.value=key;refreshSort();};th.addEventListener('click',apply);th.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();apply();}});});}
+ }
  const mini=document.createElement('span');mini.className='gvm-sync-mini';mini.id='gvm-sync-mini';mini.setAttribute('aria-live','polite');nav.appendChild(mini);
  const header=wrap.querySelector('header');header.insertAdjacentElement('afterend',nav);
- nav.after(panels.board,panels.setup,panels.cloud);
+ nav.after(panels.bestbets,panels.board,panels.bob,panels.bogey,panels.pars,panels.history,panels.setup,panels.imports,panels.cloud);
+ // V8.2.10: Unified positive-ROI board; read-only, no changes to stored state.
+ const bestPanel=document.createElement('div');bestPanel.className='panel';
+ bestPanel.innerHTML=`<div class="panelhead"><h2>Best Bets</h2><span class="help" id="bestBetsCount"></span></div>
+ <div class="toolbar" style="margin-bottom:14px;align-items:end">
+ <label>Find player<input id="bestBetsSearch" type="search" placeholder="Search player…"></label>
+ <label>Minimum ROI %<input id="bestBetsMin" type="number" step="1" value="0" style="width:110px"></label>
+ <label>Prop type<select id="bestBetsProp"><option value="all">All prop types</option><option>Round Score</option><option>BoB</option><option>Bogey+</option><option>Pars</option></select></label>
+ <label>Sportsbook<select id="bestBetsBook"><option value="all">All sportsbooks</option><option>DraftKings</option><option>FanDuel</option><option>Caesars</option><option>Fanatics</option></select></label>
+ <label>Round<select id="bestBetsRound"><option value="1">Round 1</option><option value="2">Round 2</option><option value="3">Round 3</option><option value="4">Round 4</option></select></label>
+ </div><div class="table-wrap"><table id="bestBetsTable" class="board-table"><thead><tr><th>Player</th><th>Prop</th><th>Sportsbook</th><th>Bet</th><th>Line</th><th>Book Odds</th><th>Fair Odds</th><th>ROI %</th></tr></thead><tbody id="bestBetsBody"></tbody></table></div>
+ <p class="help">All positive-ROI offers, highest first. Uses the existing pricing models for each prop. Filters are view-only.</p>`;
+ panels.bestbets.appendChild(bestPanel);
+ function renderBestBets(){
+  const body=$('bestBetsBody');if(!body)return;
+  $('bestBetsRound').value=current;
+  const query=clean($('bestBetsSearch').value),min=Math.max(0,Number($('bestBetsMin').value)||0)/100,prop=$('bestBetsProp').value,bookFilter=$('bestBetsBook').value;
+  const rows=[];
+  for(const p of roundData().players){if(!clean(p.name).includes(query))continue;
+   for(const book of BOOKS){if(bookFilter!=='all'&&book!==bookFilter)continue;
+    if(prop==='all'||prop==='Round Score')for(const o of offers(p).filter(x=>x.book===book))rows.push({p,prop:'Round Score',book,side:o.side,line:o.line,odds:o.od,fair:o.fair,roi:o.roi});
+    for(const [name,fn] of [['BoB',bobOffer],['Bogey+',bogeyOffer],['Pars',parsOffer]]){
+     if(prop!=='all'&&prop!==name)continue;
+     const o=fn(p,book);if(!o)continue;
+     rows.push({p,prop:name,book,side:'Over',line:o.line,odds:o.oddsO,fair:fair(o.over),roi:o.roiO});
+     rows.push({p,prop:name,book,side:'Under',line:o.line,odds:o.oddsU,fair:fair(o.under),roi:o.roiU});
+    }
+   }
+  }
+  const valid=rows.filter(r=>Number.isFinite(r.roi)&&r.roi>0&&r.roi>=min).sort((a,b)=>b.roi-a.roi||a.p.name.localeCompare(b.p.name));
+  body.replaceChildren();$('bestBetsCount').textContent=valid.length+' positive-ROI offers · Round '+current;
+  for(const r of valid){const tr=document.createElement('tr');for(const [i,v] of [r.p.name,r.prop,r.book,r.side,r.line.toFixed(1),moneyOdds(r.odds),r.fair,'+'+pct(r.roi)].entries()){
+    const td=document.createElement('td');td.textContent=v;if(i===0){td.className='player';gvmMakePlayerClickable(td,r.p.name);}if(i>=4)td.classList.add('num');if(i===7)td.className=roiClass(r.roi);tr.appendChild(td);
+   }body.appendChild(tr);
+  }
+  if(!valid.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=8;td.className='empty';td.textContent='No positive-ROI offers match these filters. Import sportsbook odds or adjust the filters.';tr.appendChild(td);body.appendChild(tr);}
+ }
+ for(const id of ['bestBetsSearch','bestBetsMin','bestBetsProp','bestBetsBook'])$(id).addEventListener('input',renderBestBets);
+ $('bestBetsRound').addEventListener('change',e=>{const r=$('round');r.value=e.target.value;r.dispatchEvent(new Event('change',{bubbles:true}));renderBestBets();});
+ $('round').addEventListener('change',()=>{if(!panels.bestbets.hidden)renderBestBets();});
+ // V8.2.8: Make the destination round explicit for all four sportsbook imports.
+ // This selector changes the existing shared round, so each import continues
+ // to use the established per-round storage and player-matching logic.
+ const importRoundBar=document.createElement('div');
+ importRoundBar.className='panel';
+ importRoundBar.innerHTML=`<div class="toolbar" style="align-items:center;gap:16px">
+   <label style="font-size:13px;font-weight:650;color:var(--text)">Tournament round for sportsbook imports
+     <select id="importRound" aria-label="Tournament round for all sportsbook odds imports">
+       <option value="1">Round 1</option><option value="2">Round 2</option>
+       <option value="3">Round 3</option><option value="4">Round 4</option>
+     </select>
+   </label>
+   <span class="help" id="importRoundNotice">All four sportsbook import sections below apply to the selected round.</span>
+ </div>`;
+ panels.imports.insertBefore(importRoundBar,panels.imports.firstChild);
+ const sharedRound=$('round');
+ const importRound=importRoundBar.querySelector('#importRound');
+ importRound.value=sharedRound.value;
+ importRound.addEventListener('change',()=>{
+   sharedRound.value=importRound.value;
+   sharedRound.dispatchEvent(new Event('change',{bubbles:true}));
+ });
+ sharedRound.addEventListener('change',()=>{importRound.value=sharedRound.value;});
+
+
+
+ // Keep summary metric IDs in the DOM for legacy render(), without showing the four cards.
+ const legacySummary=sections.find(el=>el.classList?.contains('summary'));
+ if(legacySummary){legacySummary.hidden=true;legacySummary.style.display='none';panels.setup.appendChild(legacySummary);}
+ // Attach BoB listeners only after panels are connected to the document.
+ $('bogeyRound').addEventListener('change',e=>{const r=$('round');r.value=e.target.value;r.dispatchEvent(new Event('change',{bubbles:true}));});
+ $('round').addEventListener('change',()=>{$('bogeyRound').value=$('round').value;});
+ for(const id of ['bogeySearch','bogeySort','bogeyPositive'])$(id).addEventListener('input',bogeyRender);
+ $('bogeyDirection').onclick=()=>{const b=$('bogeyDirection');b.dataset.dir=String(-Number(b.dataset.dir));b.textContent=b.dataset.dir==='1'?'Ascending ↑':'Descending ↓';bogeyRender();};
+ $('bogeyImport').onclick=()=>{const book=$('bogeyBook').value,map={};for(const p of roundData().players){map[clean(p.name)]=p.name;map[playerKey(p.name)]=p.name;}for(const [alias,target] of Object.entries(aliases))if(map[target])map[alias]=map[target];let ok=0,miss=[],bad=[],fresh={};for(const [i,line] of $('bogeyPaste').value.split(/\r?\n/).entries()){if(!line.trim())continue;const raw=line.trim();let cells=raw.includes('\t')?raw.split('\t').map(s=>s.trim()):csvParse(raw)[0].map(s=>s.trim());if(cells.length!==4){const m=raw.match(/^(.+?)\s+(\d+(?:\.\d+)?)\s+([+\-−]\d+)\s+([+\-−]\d+)\s*$/);if(m)cells=m.slice(1).map(s=>s.trim());}if(cells.length!==4){bad.push(i+1);continue;}if(/^player( name)?$/i.test(cells[0]))continue;const name=map[playerKey(cells[0])]||map[clean(cells[0])];if(!name){miss.push(cells[0]);continue;}const l=Number(cells[1]),o=parseOdds(cells[2]),u=parseOdds(cells[3]);if(!Number.isFinite(l)||Math.abs(l%1)!==.5||o===null||u===null){bad.push(i+1);continue;}fresh[name]={line:String(l),over:String(o),under:String(u)};ok++;}if(ok){bogeyStore()[book]=fresh;persist();bogeyRender();}$('bogeyImportMsg').textContent=ok?book+': '+ok+' Bogey+ odds imported.':'No valid matched rows; existing odds preserved.';if(miss.length)$('bogeyImportMsg').textContent+=' Unmatched: '+miss.slice(0,10).join(', ');if(bad.length)$('bogeyImportMsg').textContent+=' Invalid rows: '+bad.join(', ');};
+ $('bogeyClear').onclick=()=>{const b=$('bogeyBook').value;if(confirm('Clear '+b+' Bogey+ odds for Round '+current+'?')){bogeyStore()[b]={};persist();bogeyRender();}};
+ $('parsRound').addEventListener('change',e=>{const r=$('round');r.value=e.target.value;r.dispatchEvent(new Event('change',{bubbles:true}));});
+ $('round').addEventListener('change',()=>{$('parsRound').value=$('round').value;});
+ for(const id of ['parsSearch','parsSort','parsPositive'])$(id).addEventListener('input',parsRender);
+ $('parsDirection').onclick=()=>{const b=$('parsDirection');b.dataset.dir=String(-Number(b.dataset.dir));b.textContent=b.dataset.dir==='1'?'Ascending ↑':'Descending ↓';parsRender();};
+ $('parsImport').onclick=()=>{
+   const status=$('parsImportMsg');
+   status.textContent='Processing Pars odds…';
+   try {
+     const book=$('parsBook').value, map=Object.create(null);
+     for(const p of roundData().players){map[clean(p.name)]=p.name;map[playerKey(p.name)]=p.name;}
+     for(const [alias,target] of Object.entries(aliases))if(map[target])map[alias]=map[target];
+     let ok=0;const miss=[],bad=[],fresh={};
+     for(const [i,line] of $('parsPaste').value.split(/\r?\n/).entries()){
+       if(!line.trim())continue;
+       const raw=line.trim();
+       let cells=raw.includes('\t')?raw.split('\t').map(x=>x.trim()):csvParse(raw)[0].map(x=>x.trim());
+       if(cells.length!==4){const m=raw.match(/^(.+?)\s+(\d+(?:\.\d+)?)\s+([+\-−]\d+)\s+([+\-−]\d+)\s*$/);if(m)cells=m.slice(1).map(x=>x.trim());}
+       if(cells.length!==4){bad.push(i+1);continue;}
+       if(/^player( name)?$/i.test(cells[0]))continue;
+       const name=map[playerKey(cells[0])]||map[clean(cells[0])];
+       if(!name){miss.push(cells[0]);continue;}
+       const l=Number(cells[1]),o=parseOdds(cells[2]),u=parseOdds(cells[3]);
+       if(!Number.isFinite(l)||Math.abs(l%1)!==.5||o===null||u===null){bad.push(i+1);continue;}
+       fresh[name]={line:String(l),over:String(o),under:String(u)};ok++;
+     }
+     status.textContent=ok?book+': '+ok+' Pars odds imported.':'No valid matched rows; existing odds preserved.';
+     if(miss.length)status.textContent+=' Unmatched: '+miss.slice(0,10).join(', ');
+     if(bad.length)status.textContent+=' Invalid rows: '+bad.join(', ');
+     if(ok){parsStore()[book]=fresh;persist();parsRender();}
+   } catch(err){status.textContent='Pars import error: '+(err?.message||String(err));console.error('Pars import failed',err);}
+ };
+ $('parsClear').onclick=()=>{const b=$('parsBook').value;if(confirm('Clear '+b+' Pars odds for Round '+current+'?')){parsStore()[b]={};persist();parsRender();}};
+
+ $('bobRound').addEventListener('change',e=>{const r=$('round');r.value=e.target.value;r.dispatchEvent(new Event('change',{bubbles:true}));});
+ $('round').addEventListener('change',()=>{$('bobRound').value=$('round').value;});
+ for(const id of ['bobSearch','bobSort','bobPositive'])$(id).addEventListener('input',bobRender);
+ $('bobDirection').onclick=()=>{const b=$('bobDirection');b.dataset.dir=String(-Number(b.dataset.dir));b.textContent=b.dataset.dir==='1'?'Ascending ↑':'Descending ↓';bobRender();};
+ $('bobFile').onchange=async e=>{const file=e.target.files?.[0];if(!file)return;try{const rows=parseXlsxBobFromEntries(await unzipEntries(await file.arrayBuffer()));$('bobImportStatus').textContent=applyBobRows(rows,'Local workbook: '+file.name);}catch(err){$('bobImportStatus').textContent='Import failed: '+err.message;}};
+ $('bobImport').onclick=()=>{const book=$('bobBook').value,map={};for(const p of roundData().players){map[clean(p.name)]=p.name;map[playerKey(p.name)]=p.name;}for(const [alias,target] of Object.entries(aliases))if(map[target])map[alias]=map[target];let ok=0,miss=[],bad=[],fresh={};for(const [i,line] of $('bobPaste').value.split(/\r?\n/).entries()){if(!line.trim())continue;const cells=(line.includes('\t')?line.split('\t'):csvParse(line)[0]).map(s=>s.trim());if(cells.length!==4){bad.push(i+1);continue;}if(/^player( name)?$/i.test(cells[0]))continue;const name=map[playerKey(cells[0])]||map[clean(cells[0])];if(!name){miss.push(cells[0]);continue;}const l=Number(cells[1]),o=parseOdds(cells[2]),u=parseOdds(cells[3]);if(!Number.isFinite(l)||Math.abs(l%1)!==.5||o===null||u===null){bad.push(i+1);continue;}fresh[name]={line:String(l),over:String(o),under:String(u)};ok++;}if(ok){bobOdds()[book]=fresh;persist();bobRender();}$('bobImportMsg').textContent=ok?book+': '+ok+' BoB odds imported.':'No valid matched rows; existing odds preserved.';if(miss.length)$('bobImportMsg').textContent+=' Unmatched: '+miss.slice(0,10).join(', ');if(bad.length)$('bobImportMsg').textContent+=' Invalid rows: '+bad.join(', ');};
+ $('bobClear').onclick=()=>{const b=$('bobBook').value;if(confirm('Clear '+b+' BoB odds for Round '+current+'?')){bobOdds()[b]={};persist();bobRender();}};
+
  const choose=(key)=>{
   for(const k of Object.keys(labels)){const active=k===key;panels[k].hidden=!active;buttons[k].setAttribute('aria-selected',String(active));buttons[k].tabIndex=active?0:-1;}
+  if(key==='bestbets')renderBestBets();
   try{sessionStorage.setItem('gvm-v74-tab',key);}catch(e){}
  };
  for(const key of Object.keys(labels))buttons[key].addEventListener('click',()=>choose(key));
- let initial='board';try{const prior=sessionStorage.getItem('gvm-v74-tab');if(prior in labels)initial=prior;}catch(e){}
+ let initial='bestbets';try{const prior=sessionStorage.getItem('gvm-v74-tab');if(prior in labels)initial=prior;}catch(e){}
  choose(initial);
+ try { parsRender(); } catch(error) { console.error('Pars rendering failed:',error); }
+ try { bogeyRender(); } catch(error) { console.error('Bogey+ rendering failed:',error); }
+ try { bobRender(); } catch (error) { console.error('BoB rendering failed:', error); const el=document.getElementById('bobSummary'); if(el) el.textContent='BoB rendering error: '+error.message; }
+ // V7.5: local JSON backup / restore. Restore deliberately pauses cloud sync.
+ const setupPanel=groups.setup[0];
+ if(setupPanel){
+  const backup=document.createElement('div');backup.className='panel';backup.id='gvmBackupPanel';
+  backup.innerHTML='<h2>Backup &amp; restore</h2><p class="note">Save a local copy of all four rounds, sportsbook odds, StDevs and player aliases. Backups do not include OneDrive or Supabase login tokens.</p><div class="gvm-backup-controls"><button type="button" id="gvmDownloadBackup">Download JSON backup</button><label>Restore JSON backup <input id="gvmRestoreFile" type="file" accept=".json,application/json"></label></div><p id="gvmBackupStatus" class="note" role="status"></p>';
+  panels.setup.appendChild(backup);
+  backup.querySelector('#gvmDownloadBackup').addEventListener('click',()=>{
+   const data={format:'golf-player-prop-board-backup',version:1,exportedAt:new Date().toISOString(),rounds:state,stdev:sdState,aliases:JSON.parse(localStorage.getItem(ALIAS_KEY)||'{}')};
+   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='golf-prop-board-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+   backup.querySelector('#gvmBackupStatus').textContent='Backup downloaded. Keep it in a safe folder.';
+  });
+  backup.querySelector('#gvmRestoreFile').addEventListener('change',async e=>{
+   const file=e.target.files?.[0];if(!file)return;
+   const msg=backup.querySelector('#gvmBackupStatus');
+   try{
+    if(file.size>20*1024*1024)throw Error('File exceeds 20 MB limit.');
+    const data=JSON.parse(await file.text());
+    if(data.format!=='golf-player-prop-board-backup'||data.version!==1||!data.rounds||typeof data.rounds!=='object'||Array.isArray(data.rounds)||!data.stdev||typeof data.stdev!=='object'||!data.aliases||typeof data.aliases!=='object'||Array.isArray(data.aliases))throw Error('Not a supported Golf Player Prop Board backup.');
+    for(const [key,round] of Object.entries(data.rounds)){
+     if(!['1','2','3','4'].includes(key)||!round||!Array.isArray(round.players)||round.players.length>1000||round.players.some(p=>!p||typeof p.name!=='string'||!Number.isFinite(Number(p.dg)))||round.books&&typeof round.books!=='object')throw Error('Invalid round data in backup.');
+    }
+    if(!confirm('Restore this backup? It will replace ALL locally saved rounds, odds, StDevs and aliases in this browser. Cloud auto-sync will be paused. Continue?')){msg.textContent='Restore cancelled.';return;}
+    cloudEnabled=false;cloudPending=false;if(cloudTimer){clearTimeout(cloudTimer);cloudTimer=null;}
+    localStorage.removeItem(CLOUD_BASE_KEY);
+    state=data.rounds;sdState=data.stdev;
+    localStorage.setItem(KEY,JSON.stringify(state));localStorage.setItem(SD_KEY,JSON.stringify(sdState));localStorage.setItem(ALIAS_KEY,JSON.stringify(data.aliases));
+    for(const k of Object.keys(aliases))delete aliases[k];Object.assign(aliases,data.aliases);
+    current='1';document.getElementById('round').value='1';updateControls();updateSdStatus();cloudPauseUI();cloudMsg('Local backup restored. Automatic sync paused. Review data before choosing Upload or Load.');
+    msg.textContent='Backup restored locally. Automatic cloud sync paused; review your board before syncing.';
+   }catch(err){msg.textContent='Restore failed: '+err.message+'. Existing data was not changed.';}
+   finally{e.target.value='';}
+  });
+ }
  const status=document.getElementById('cloudStatus');
  if(status){
   const update=()=>{
@@ -558,5 +889,130 @@ $('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);i
   };
   new MutationObserver(update).observe(status,{childList:true,subtree:true,characterData:true});update();
  }
+})();
+
+/* V7.7: Tournament History is separate local cache, excluded from Supabase state. */
+(function(){
+ const panel=document.getElementById('gvm-panel-history');if(!panel)return;
+ const COLUMNS=[['B','Year'],['C','Season'],['D','Event'],['H','Player'],['J','Finish'],['K','Round'],['L','Course'],['N','Par'],['P','Tee Time'],['Q','Score'],['R','To Par'],['Z','Driving Acc.'],['AA','Fairways'],['AB','GIR %'],['AC','Greens'],['AI','Eagles+'],['AJ','Birdies'],['AK','BoB'],['AL','Pars'],['AM','Bogeys'],['AN','Doubles+'],['AO','Bogey+']];
+ const NUMERIC=new Set(['B','C','K','N','Q','R','Z','AA','AB','AC','AI','AJ','AK','AL','AM','AN','AO']);
+ const CACHE='gvm-v77-tournament-history';let records=[],source='',sortCol='',sortDir=1,view=[],limit=250;
+ panel.innerHTML=`<div class="panel" id="historyPanel"><div class="panelhead"><h2>Tournament History <span class="tag">V7.7.1</span></h2><span id="histStatus" class="help">No history imported yet.</span></div><p class="note">Read the <strong>PGA Tournament History</strong> worksheet from your selected OneDrive workbook. Only the 22 requested columns are shown; the original Excel worksheet remains unchanged. History is cached in this browser and is not sent to Supabase.</p><div class="toolbar"><button id="histRefresh" class="primary">Refresh Tournament History from OneDrive</button><button id="histExport">Export filtered CSV</button><button id="histClear">Clear history cache</button></div><div class="toolbar"><label>Year<select id="histYear"></select></label><label>Season<select id="histSeason"></select></label><label>Round<select id="histRound"></select></label><label>Course<select id="histCourse"></select></label><label>AM/PM<select id="histWave"><option value="">All waves</option><option value="AM">AM</option><option value="PM">PM</option></select></label><label>Player<input id="histPlayer" type="search" placeholder="Find player…"></label><label>Score to Par min<input id="histMin" type="number" step="1" placeholder="Any" style="width:80px"></label><label>max<input id="histMax" type="number" step="1" placeholder="Any" style="width:80px"></label><button id="histReset">Reset filters</button></div><div id="historySummary"></div><div class="tablewrap board-wrap" id="historyGrid"><table><thead><tr id="histHead"></tr></thead><tbody id="histBody"></tbody></table></div><div class="toolbar"><span id="histCount" class="help"></span><button id="histMore">Show 250 more rows</button></div></div>`;
+ const $h=id=>document.getElementById(id);
+ // Excel stores times as fractions of a day; Graph workbook extraction returns raw values.
+ const historyTime=v=>{
+  if(v==null||String(v).trim()==='')return '';
+  const n=typeof v==='number'?v:Number(v);
+  if(Number.isFinite(n)&&n>=0&&n<1){const mins=Math.round(n*1440)%1440;const h=Math.floor(mins/60),m=mins%60;return `${h%12||12}:${String(m).padStart(2,'0')} ${h>=12?'PM':'AM'}`;}
+  const str=String(v).trim();
+  const match=str.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)?$/i);
+  if(match){let h=Number(match[1]);const m=Number(match[2]);if(h<=23&&m<60){const suffix=match[3]?.toUpperCase()||(h>=12?'PM':'AM');return `${h%12||12}:${String(m).padStart(2,'0')} ${suffix}`;}}
+  return str;
+ };
+ const historyMinutes=v=>{const t=historyTime(v),m=t.match(/^(\d{1,2}):(\d{2}) (AM|PM)$/);return m?(Number(m[1])%12+(m[3]==='PM'?12:0))*60+Number(m[2]):NaN;};
+ const display=(v,c)=>{if(v==null||v==='')return '—';if(c==='P')return historyTime(v);if(c==='Z'||c==='AB'){const n=Number(v);return Number.isFinite(n)?(n*100).toFixed(2)+'%':v;}return String(v);};
+ const val=(r,c)=>r[c]??'';
+ const numeric=(v)=>v===''||v==null?NaN:Number(v);
+ const mean=(rows,c)=>{const nums=rows.map(r=>numeric(val(r,c))).filter(Number.isFinite);return nums.length?nums.reduce((a,b)=>a+b,0)/nums.length:NaN;};
+ const setStatus=t=>$h('histStatus').textContent=t;
+ const csvField=x=>'"'+String(x??'').replace(/"/g,'""')+'"';
+ function selections(){for(const [id,col] of [['histYear','B'],['histSeason','C'],['histRound','K'],['histCourse','L']]){const sel=$h(id),old=sel.value;const options=[...new Set(records.map(r=>val(r,col)).filter(x=>x!==''))].sort((a,b)=>col==='L'?String(a).localeCompare(String(b)):Number(a)-Number(b));sel.replaceChildren(new Option('All '+({histYear:'years',histSeason:'seasons',histRound:'rounds',histCourse:'courses'}[id]),''),...options.map(x=>new Option(String(x),String(x))));sel.value=options.some(x=>String(x)===old)?old:'';}}
+ function filter(){view=records.filter(r=>[['histYear','B'],['histSeason','C'],['histRound','K'],['histCourse','L']].every(([id,c])=>!$h(id).value||String(val(r,c))===$h(id).value));const name=$h('histPlayer').value.trim().toLowerCase();if(name)view=view.filter(r=>String(val(r,'H')).toLowerCase().includes(name));const wave=$h('histWave').value;if(wave)view=view.filter(r=>{const t=historyTime(val(r,'P')).toUpperCase();return wave==='AM'?t.endsWith('AM'):t.endsWith('PM');});const min=$h('histMin').value,max=$h('histMax').value;if(min!=='')view=view.filter(r=>numeric(val(r,'R'))>=Number(min));if(max!=='')view=view.filter(r=>numeric(val(r,'R'))<=Number(max));if(sortCol)view.sort((a,b)=>{const x=val(a,sortCol),y=val(b,sortCol);if(x===''||x==null)return y===''||y==null?0:1;if(y===''||y==null)return -1;return sortDir*(sortCol==='P'?historyMinutes(x)-historyMinutes(y):NUMERIC.has(sortCol)?Number(x)-Number(y):String(x).localeCompare(String(y),undefined,{numeric:true}));});render();}
+ function render(){const head=$h('histHead');head.replaceChildren();for(const [col,label] of COLUMNS){const th=document.createElement('th');th.textContent=label+(sortCol===col?(sortDir===1?' ↑':' ↓'):'');th.title='Sort by '+label;th.tabIndex=0;if(col==='H')th.className='hist-player';const toggle=()=>{sortDir=sortCol===col?-sortDir:1;sortCol=col;filter();};th.onclick=toggle;th.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle();}};head.appendChild(th);}const body=$h('histBody');body.replaceChildren();const frag=document.createDocumentFragment();for(const r of view.slice(0,limit)){const tr=document.createElement('tr');for(const [c] of COLUMNS){const td=document.createElement('td');td.textContent=display(val(r,c),c);if(c==='H')td.className='hist-player';else if(NUMERIC.has(c))td.className='num';tr.appendChild(td);}frag.appendChild(tr);}body.appendChild(frag);$h('histCount').textContent=`Showing ${Math.min(view.length,limit).toLocaleString()} of ${view.length.toLocaleString()} filtered rounds (${records.length.toLocaleString()} loaded)`;$h('histMore').hidden=limit>=view.length;const stats=[['Avg To Par','R'],['Avg Score','Q'],['Avg BoB','AK'],['Avg Bogey+','AO'],['Avg Fairways','AA'],['Avg Greens','AC'],['Avg Driving Acc.','Z'],['Avg GIR','AB']];$h('historySummary').innerHTML=stats.map(([label,col])=>{const m=mean(view,col),v=Number.isFinite(m)?(col==='Z'||col==='AB'?(m*100).toFixed(2)+'%':m.toFixed(2)):'—';return `<div class="stat"><small>${label}</small><strong>${v}</strong></div>`;}).join('');}
+ function loadCache(){try{const obj=JSON.parse(localStorage.getItem(CACHE)||'null');if(obj&&Array.isArray(obj.rows)&&obj.rows.length<=15000){records=obj.rows;source=obj.source||'Cached history';setStatus(records.length.toLocaleString()+' rounds · '+source);}}catch(e){setStatus('History cache unavailable: '+e.message);}selections();filter();}
+ function excelRows(files){const xml=workbookSheetXml(files,'PGA Tournament History');const shared=files['xl/sharedStrings.xml']?nodesByLocal(xmlDoc(files['xl/sharedStrings.xml']),'si').map(si=>nodesByLocal(si,'t').map(n=>n.textContent).join('')):[];const out=[];for(const row of nodesByLocal(xmlDoc(xml),'row')){const r={};for(const cell of Array.from(row.children).filter(n=>n.localName==='c')){const c=(cell.getAttribute('r')||'').match(/^[A-Z]+/)?.[0];if(!COLUMNS.some(x=>x[0]===c))continue;let v=Array.from(cell.children).find(n=>n.localName==='v')?.textContent??'';if(cell.getAttribute('t')==='s')v=shared[Number(v)]??'';if(cell.getAttribute('t')==='inlineStr')v=nodesByLocal(cell,'t').map(n=>n.textContent).join('');r[c]=v.trim();}if(r.H&&r.K&&/^\d+$/.test(String(r.K))&&r.H.toLowerCase()!=='player name')out.push(r);}return out;}
+ $h('histRefresh').onclick=async()=>{const button=$h('histRefresh');button.disabled=true;try{if(!msConfig.itemId)throw Error('Choose a OneDrive workbook first.');setStatus('Downloading history from OneDrive…');const meta=await msGraph('/me/drive/items/'+encodeURIComponent(msConfig.itemId));const url=meta['@microsoft.graph.downloadUrl'];if(!url)throw Error('OneDrive download URL missing.');const response=await fetch(url);if(!response.ok)throw Error('Download failed: HTTP '+response.status);const rows=excelRows(await unzipEntries(await response.arrayBuffer()));if(!rows.length)throw Error('No valid historical rounds found. Existing history was preserved.');if(rows.length>15000)throw Error('More than 15,000 rows found. Existing history was preserved.');const stamp=new Date().toLocaleString();try{localStorage.setItem(CACHE,JSON.stringify({rows,source:'OneDrive · '+stamp}));}catch(e){setStatus('Imported, but browser storage is full; history will not persist after reload.');records=rows;selections();filter();return;}records=rows;source='OneDrive · '+stamp;sortCol='';sortDir=1;limit=250;selections();filter();setStatus(rows.length.toLocaleString()+' rounds refreshed · '+stamp);}catch(e){setStatus('History refresh failed: '+e.message);}finally{button.disabled=false;}};
+ $h('histExport').onclick=()=>{if(!view.length)return;const csv=[COLUMNS.map(c=>csvField(c[1])).join(','),...view.map(r=>COLUMNS.map(([c])=>csvField(display(val(r,c),c))).join(','))].join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='golf-tournament-history-filtered.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+ $h('histClear').onclick=()=>{if(!confirm('Clear cached Tournament History in this browser? The OneDrive workbook will not be changed.'))return;localStorage.removeItem(CACHE);records=[];source='';selections();filter();setStatus('History cache cleared.');};
+ $h('histMore').onclick=()=>{limit+=250;render();};
+ $h('histReset').onclick=()=>{for(const id of ['histYear','histSeason','histRound','histCourse','histWave','histPlayer','histMin','histMax'])$h(id).value='';sortCol='';limit=250;filter();};
+ for(const id of ['histYear','histSeason','histRound','histCourse','histWave','histPlayer','histMin','histMax'])$h(id).addEventListener('input',()=>{limit=250;filter();});
+ loadCache();
+})();
+
+// V7.8 player history modal: reads the SAME local cache as Tournament History.
+const GVM_PLAYER_HISTORY_COLUMNS=[['B','Year'],['K','Round'],['P','Tee Time'],['Q','Score'],['R','To Par'],['AA','Fairways'],['AC','Greens'],['AK','BoB'],['AL','Pars'],['AO','Bogey+']];
+let gvmPlayerHistorySort='B',gvmPlayerHistoryDir=-1,gvmPlayerHistoryRows=[],gvmHistoryReturnFocus=null;
+function gvmHistoryTee(v){
+ if(v==null||String(v).trim()==='')return '—';
+ const n=Number(v);
+ if(Number.isFinite(n)&&n>=0&&n<1){const minutes=Math.round(n*1440)%1440,h=Math.floor(minutes/60),m=minutes%60;return `${h%12||12}:${String(m).padStart(2,'0')} ${h>=12?'PM':'AM'}`;}
+ const str=String(v).trim(),match=str.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)?$/i);
+ if(match){const h=Number(match[1]),m=Number(match[2]);if(h<=23&&m<60)return `${h%12||12}:${String(m).padStart(2,'0')} ${(match[3]|| (h>=12?'PM':'AM')).toUpperCase()}`;}
+ return str;
+}
+function gvmHistoryValue(r,col){return col==='P'?gvmHistoryTee(r[col]):(r[col]??'')===''?'—':String(r[col]);}
+function gvmHistoryMean(rows,col){const a=rows.map(r=>r[col]===''?NaN:Number(r[col])).filter(Number.isFinite);return a.length?(a.reduce((x,y)=>x+y,0)/a.length).toFixed(2):'—';}
+function gvmHistoryDraw(){
+ const head=$('gvmHistoryHeaders'),body=$('gvmHistoryRows');head.replaceChildren();body.replaceChildren();
+ for(const [col,label] of GVM_PLAYER_HISTORY_COLUMNS){const th=document.createElement('th');th.textContent=label+(gvmPlayerHistorySort===col?(gvmPlayerHistoryDir===1?' ↑':' ↓'):'');th.tabIndex=0;th.title='Sort by '+label;const toggle=()=>{gvmPlayerHistoryDir=gvmPlayerHistorySort===col?-gvmPlayerHistoryDir:1;gvmPlayerHistorySort=col;gvmHistoryDraw();};th.addEventListener('click',toggle);th.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle();}});head.appendChild(th);}
+ const rows=[...gvmPlayerHistoryRows].sort((a,b)=>{const c=gvmPlayerHistorySort,x=a[c],y=b[c];if(c==='P'){const m=t=>{const p=gvmHistoryTee(t).match(/^(\d+):(\d+) (AM|PM)$/);return p?(Number(p[1])%12+(p[3]==='PM'?12:0))*60+Number(p[2]):NaN;};return (m(x)-m(y))*gvmPlayerHistoryDir;}const nx=Number(x),ny=Number(y);return (x!==''&&y!==''&&Number.isFinite(nx)&&Number.isFinite(ny)?nx-ny:String(x??'').localeCompare(String(y??''),undefined,{numeric:true}))*gvmPlayerHistoryDir || (Number(a.K)-Number(b.K));});
+ const frag=document.createDocumentFragment();for(const r of rows){const tr=document.createElement('tr');for(const [col] of GVM_PLAYER_HISTORY_COLUMNS){const td=document.createElement('td');td.textContent=gvmHistoryValue(r,col);td.className='num';tr.appendChild(td);}frag.appendChild(tr);}body.appendChild(frag);
+}
+function gvmOpenPlayerHistory(player){
+ const modal=$('gvmHistoryModal');if(!modal)return;
+ let records=[];try{const data=JSON.parse(localStorage.getItem('gvm-v77-tournament-history')||'null');if(Array.isArray(data?.rows))records=data.rows;}catch(e){}
+ const key=playerKey(player);gvmPlayerHistoryRows=records.filter(r=>playerKey(r.H)===key);
+ gvmPlayerHistorySort='B';gvmPlayerHistoryDir=-1;
+ $('gvmHistoryTitle').textContent=player;
+ $('gvmHistorySubtitle').textContent='Tournament history · '+gvmPlayerHistoryRows.length+' prior rounds'+(!records.length?' · Refresh Tournament History from OneDrive first':'');
+ $('gvmHistoryEmpty').hidden=gvmPlayerHistoryRows.length>0;$('gvmHistoryTableWrap').hidden=!gvmPlayerHistoryRows.length;
+ const stats=$('gvmHistoryStats');stats.replaceChildren();if(gvmPlayerHistoryRows.length){for(const [label,value] of [['Prior Rounds',String(gvmPlayerHistoryRows.length)],['Avg To Par',gvmHistoryMean(gvmPlayerHistoryRows,'R')],['Avg BoB',gvmHistoryMean(gvmPlayerHistoryRows,'AK')],['Avg Bogey+',gvmHistoryMean(gvmPlayerHistoryRows,'AO')]]){const card=document.createElement('div');card.className='stat';const small=document.createElement('small');small.textContent=label;const strong=document.createElement('strong');strong.textContent=value;card.append(small,strong);stats.appendChild(card);}}
+ gvmHistoryDraw();gvmHistoryReturnFocus=document.activeElement;modal.hidden=false;document.body.classList.add('gvm-modal-open');$('gvmHistoryClose').focus();
+}
+function gvmClosePlayerHistory(){const modal=$('gvmHistoryModal');if(modal.hidden)return;modal.hidden=true;document.body.classList.remove('gvm-modal-open');if(gvmHistoryReturnFocus?.isConnected)gvmHistoryReturnFocus.focus();}
+// Player-link helper is defined in the initial script, before its first render.
+$('gvmHistoryClose').addEventListener('click',gvmClosePlayerHistory);
+$('gvmHistoryModal').addEventListener('click',e=>{if(e.target===$('gvmHistoryModal'))gvmClosePlayerHistory();});
+document.addEventListener('keydown',e=>{if($('gvmHistoryModal').hidden)return;if(e.key==='Escape'){gvmClosePlayerHistory();return;}if(e.key==='Tab'){const modal=$('gvmHistoryModal'),focusable=[...modal.querySelectorAll('button:not([disabled]),th[tabindex="0"]')].filter(el=>el.getClientRects().length);if(!focusable.length)return;const first=focusable[0],last=focusable[focusable.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}});
+</script>
+<script>
+/* V8.0: Shared sportsbook visibility across Round Score and BoB boards.
+   This setting is display-only: sportsbook lines and imports are never deleted. */
+(function(){
+ const books=['DraftKings','FanDuel','Caesars','Fanatics'];
+ const storageKey='gvm-v79-visible-books';
+ let enabled;
+ try {const saved=JSON.parse(localStorage.getItem(storageKey)||'null');enabled=Array.isArray(saved)?books.filter(b=>saved.includes(b)):books.slice();}
+ catch(e){enabled=books.slice();}
+ const css=document.createElement('style');css.id='gvm-book-visibility-css';document.head.appendChild(css);
+ function apply(){
+  const selectors=[];
+  for(const prefix of ['#boardWrap .board-table','#gvm-panel-bob .board-table','#gvm-panel-bogey .board-table','#gvm-panel-pars .board-table']){
+   books.forEach((book,i)=>{
+    if(enabled.includes(book))return;
+    selectors.push(`${prefix} thead tr.group-head > th:nth-child(${i+4})`);
+    for(let j=i*7+1;j<=i*7+7;j++){
+     selectors.push(`${prefix} thead tr.subhead > th:nth-child(${j})`);
+     selectors.push(`${prefix} tbody tr > td:nth-child(${j+3})`);
+    }
+   });
+  }
+  css.textContent=selectors.length?selectors.join(',')+'{display:none!important}'+
+    '#boardWrap .board-table,#gvm-panel-bob .board-table,#gvm-panel-bogey .board-table,#gvm-panel-pars .board-table{min-width:0;width:max-content}':'';
+  document.querySelectorAll('.gvm-book-picker input').forEach(box=>{box.checked=enabled.includes(box.value);});
+  document.querySelectorAll('.gvm-book-picker-status').forEach(el=>{el.textContent=enabled.length+' of 4 sportsbooks visible';});
+ }
+ function makePicker(panel){
+  if(!panel)return;
+  const box=document.createElement('div');box.className='gvm-book-picker';
+  box.style.cssText='display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:8px 0 12px;padding:10px 12px;background:#17263a;border:1px solid #40536d;border-radius:10px';
+  const heading=document.createElement('strong');heading.textContent='Show sportsbooks:';heading.style.marginRight='4px';box.appendChild(heading);
+  for(const book of books){
+   const label=document.createElement('label');label.style.cssText='display:inline-flex;flex-direction:row;align-items:center;gap:5px;font-size:13px;cursor:pointer';
+   const input=document.createElement('input');input.type='checkbox';input.value=book;input.checked=enabled.includes(book);
+   input.addEventListener('change',()=>{
+    const proposed=books.filter(b=>[...box.querySelectorAll('input:checked')].some(el=>el.value===b));
+    if(!proposed.length){input.checked=true;return;}
+    enabled=proposed;try{localStorage.setItem(storageKey,JSON.stringify(enabled));}catch(e){}
+    apply();
+   });
+   label.append(input,document.createTextNode(book));box.appendChild(label);
+  }
+  const status=document.createElement('span');status.className='help gvm-book-picker-status';box.appendChild(status);
+  const table=panel.querySelector('.board-wrap');if(table)table.parentNode.insertBefore(box,table);
+ }
+ function init(){makePicker(document.getElementById('gvm-panel-board'));makePicker(document.getElementById('gvm-panel-bob'));makePicker(document.getElementById('gvm-panel-bogey'));makePicker(document.getElementById('gvm-panel-pars'));apply();}
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
 </script></body></html>

@@ -561,7 +561,8 @@ async function cloudConfigure(){
  cloudClient.auth.onAuthStateChange((event,session)=>{
   cloudUser=session?.user||null;cloudButtons();
   if(event==='SIGNED_OUT'){cloudEnabled=false;cloudMsg('Signed out. Browser data remains available.');}
-  else if(cloudUser&&!cloudEnabled){cloudMsg('Signed in as '+cloudUser.email+'. Checking cloud sync…');}
+  // Do not overwrite cloudRestore's completed status on later auth events.
+  // cloudConfigure() and cloudRestore() own the initial sync status.
  });
  try{
   const returned=await cloudHandleCallback();

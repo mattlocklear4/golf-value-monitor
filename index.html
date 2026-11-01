@@ -109,6 +109,23 @@ body.gvm-modal-open{overflow:hidden}
 #gvm-panel-bestbets #bestBetsTable th:nth-child(8){width:10%}
 #gvm-panel-bestbets #bestBetsTable th:first-child,#gvm-panel-bestbets #bestBetsTable td:first-child{text-align:left}
 @media(max-width:850px){#gvm-panel-bestbets #bestBetsTable{min-width:720px}}
+
+/* Mobile-only Best Bets cards; desktop table remains unchanged. */
+#gvm-bestbet-cards{display:none}
+@media(max-width:700px){
+ #gvm-panel-bestbets .table-wrap{display:none}
+ #gvm-bestbet-cards{display:grid;gap:11px;margin-top:10px}
+ .gvm-bet-card{background:#0e1a2c;border:1px solid #344d68;border-radius:12px;padding:13px;min-width:0}
+ .gvm-bet-card-head{display:flex;align-items:start;justify-content:space-between;gap:8px;margin-bottom:8px}
+ .gvm-bet-card-head .gvm-history-link{font-size:16px;white-space:normal;text-overflow:clip;overflow:visible}
+ .gvm-bet-roi{font-size:15px;font-weight:800;white-space:nowrap;color:#4ade80}
+ .gvm-bet-context{color:#afc8e6;font-size:13px;margin-bottom:9px}
+ .gvm-bet-pick{font-size:17px;font-weight:750;margin-bottom:10px}
+ .gvm-bet-prices{display:grid;grid-template-columns:1fr 1fr;gap:8px;border-top:1px solid #34445a;padding-top:10px}
+ .gvm-bet-price-label{display:block;color:#a8bfdc;font-size:12px;margin-bottom:4px}
+ .gvm-bet-price-value{font-weight:750;font-size:16px}
+ .gvm-bet-empty{color:#a8bfdc;text-align:center;padding:28px 12px}
+}
 </style></head><body><div id="gvmHistoryModal" class="gvm-modal" hidden role="dialog" aria-modal="true" aria-labelledby="gvmHistoryTitle"><div class="gvm-modal-box"><div class="gvm-modal-header"><div><h2 id="gvmHistoryTitle">Player History</h2><div class="help" id="gvmHistorySubtitle">Historical rounds from the current OneDrive cache</div></div><button type="button" id="gvmHistoryClose" aria-label="Close player history">✕ Close</button></div><div id="gvmHistoryStats" class="gvm-modal-stats"></div><div id="gvmHistoryEmpty" class="empty" hidden>No Prior Rounds</div><div class="tablewrap gvm-modal-table" id="gvmHistoryTableWrap"><table><thead><tr id="gvmHistoryHeaders"></tr></thead><tbody id="gvmHistoryRows"></tbody></table></div></div></div><div class="wrap">
 <header><div><h1>⛳ Golf Player Prop Board</h1><div class="sub">DataGolf projections · spreadsheet-style four-book round-score board · player-specific StDev</div></div><span class="tag">Manual odds updates · no live feed</span></header>
 <div class="panel" style="margin-top:18px"><h2>Round &amp; scoring model</h2><div class="model-grid">
@@ -561,8 +578,7 @@ async function cloudConfigure(){
  cloudClient.auth.onAuthStateChange((event,session)=>{
   cloudUser=session?.user||null;cloudButtons();
   if(event==='SIGNED_OUT'){cloudEnabled=false;cloudMsg('Signed out. Browser data remains available.');}
-  // Do not overwrite cloudRestore's completed status on later auth events.
-  // cloudConfigure() and cloudRestore() own the initial sync status.
+  else if(cloudUser&&!cloudEnabled){cloudMsg('Signed in as '+cloudUser.email+'. Checking cloud sync…');}
  });
  try{
   const returned=await cloudHandleCallback();
@@ -728,7 +744,7 @@ $('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);i
  <label>Prop type<select id="bestBetsProp"><option value="all">All prop types</option><option>Round Score</option><option>BoB</option><option>Bogey+</option><option>Pars</option></select></label>
  <label>Sportsbook<select id="bestBetsBook"><option value="all">All sportsbooks</option><option>DraftKings</option><option>FanDuel</option><option>Caesars</option><option>Fanatics</option></select></label>
  <label>Round<select id="bestBetsRound"><option value="1">Round 1</option><option value="2">Round 2</option><option value="3">Round 3</option><option value="4">Round 4</option></select></label>
- </div><div class="table-wrap"><table id="bestBetsTable" class="board-table"><thead><tr><th>Player</th><th>Prop</th><th>Sportsbook</th><th>Bet</th><th>Line</th><th>Book Odds</th><th>Fair Odds</th><th>ROI %</th></tr></thead><tbody id="bestBetsBody"></tbody></table></div>
+ </div><div class="table-wrap"><table id="bestBetsTable" class="board-table"><thead><tr><th>Player</th><th>Prop</th><th>Sportsbook</th><th>Bet</th><th>Line</th><th>Book Odds</th><th>Fair Odds</th><th>ROI %</th></tr></thead><tbody id="bestBetsBody"></tbody></table></div><div id="gvm-bestbet-cards" aria-label="Best Bets mobile cards"></div>
  <p class="help">All positive-ROI offers, highest first. Uses the existing pricing models for each prop. Filters are view-only.</p>`;
  panels.bestbets.appendChild(bestPanel);
  function renderBestBets(){
@@ -748,7 +764,24 @@ $('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);i
    }
   }
   const valid=rows.filter(r=>Number.isFinite(r.roi)&&r.roi>0&&r.roi>=min).sort((a,b)=>b.roi-a.roi||a.p.name.localeCompare(b.p.name));
-  body.replaceChildren();$('bestBetsCount').textContent=valid.length+' positive-ROI offers · Round '+current;
+  body.replaceChildren();$('bestBetsCount').textContent=valid.length+' positive-ROI offers'+' · Round '+current;
+  const cards=$('gvm-bestbet-cards');cards.replaceChildren();
+  for(const r of valid){
+   const card=document.createElement('article');card.className='gvm-bet-card';
+   const head=document.createElement('div');head.className='gvm-bet-card-head';
+   const name=document.createElement('span');name.className='player';name.textContent=r.p.name;gvmMakePlayerClickable(name,r.p.name);
+   const roi=document.createElement('strong');roi.className='gvm-bet-roi '+roiClass(r.roi);roi.textContent='+'+pct(r.roi)+' ROI';
+   head.append(name,roi);
+   const context=document.createElement('div');context.className='gvm-bet-context';context.textContent=r.prop+' · '+r.book;
+   const pick=document.createElement('div');pick.className='gvm-bet-pick';pick.textContent=r.side+' '+r.line.toFixed(1)+(r.prop==='Round Score'?'':' '+r.prop);
+   const prices=document.createElement('div');prices.className='gvm-bet-prices';
+   for(const [label,value] of [['Book odds',moneyOdds(r.odds)],['Fair odds',r.fair]]){
+    const item=document.createElement('div');const cap=document.createElement('span');cap.className='gvm-bet-price-label';cap.textContent=label;
+    const val=document.createElement('span');val.className='gvm-bet-price-value';val.textContent=value;item.append(cap,val);prices.appendChild(item);
+   }
+   card.append(head,context,pick,prices);cards.appendChild(card);
+  }
+  if(!valid.length){const empty=document.createElement('div');empty.className='gvm-bet-empty';empty.textContent='No positive-ROI offers match these filters.';cards.appendChild(empty);}
   for(const r of valid){const tr=document.createElement('tr');for(const [i,v] of [r.p.name,r.prop,r.book,r.side,r.line.toFixed(1),moneyOdds(r.odds),r.fair,'+'+pct(r.roi)].entries()){
     const td=document.createElement('td');td.textContent=v;if(i===0){td.className='player';gvmMakePlayerClickable(td,r.p.name);}if(i>=4)td.classList.add('num');if(i===7)td.className=roiClass(r.roi);tr.appendChild(td);
    }body.appendChild(tr);

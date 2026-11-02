@@ -657,17 +657,20 @@ $('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);i
   setup:[findHeading('Round & scoring model'),findHeading('Tournament scoring standard deviations'),sections.find(el=>el.id==='qualityPanel')],
   imports:[findHeading('Round Score sportsbook odds import')],
   cloud:[sections.find(el=>el.id==='cloudPanel'),sections.find(el=>el.id==='oneDrivePanel')],
-  bestbets:[],bob:[],bogey:[],pars:[],history:[]
+  bestbets:[],bob:[],bogey:[],pars:[],history:[],weather:[]
  };
  const nav=document.createElement('nav');nav.className='gvm-tabs';nav.setAttribute('aria-label','Dashboard sections');
  const panels={};const buttons={};
- const labels={bestbets:'Best Bets',board:'Round Score Board',bob:'BoB Board',bogey:'Bogey+ Board',pars:'Pars Board',history:'Tournament History',setup:'Setup & Imports',imports:'Sportsbook Odds Import',cloud:'Cloud & OneDrive'};
+ const labels={bestbets:'Best Bets',board:'Round Score Board',bob:'BoB Board',bogey:'Bogey+ Board',pars:'Pars Board',history:'Tournament History',weather:'Historical Weather',setup:'Setup & Imports',imports:'Sportsbook Odds Import',cloud:'Cloud & OneDrive'};
  for(const key of Object.keys(labels)){
   const btn=document.createElement('button');btn.type='button';btn.className='gvm-tab';btn.textContent=labels[key];btn.id='gvm-tab-'+key;btn.setAttribute('role','tab');btn.setAttribute('aria-controls','gvm-panel-'+key);
   const panel=document.createElement('section');panel.id='gvm-panel-'+key;panel.className='gvm-tab-panel';panel.setAttribute('role','tabpanel');panel.setAttribute('aria-labelledby',btn.id);
   buttons[key]=btn;panels[key]=panel;nav.appendChild(btn);
   for(const el of groups[key].filter(Boolean))panel.appendChild(el);
  }
+ const weatherPanel=document.createElement('div');weatherPanel.className='panel';
+ weatherPanel.innerHTML='<div class="panelhead"><h2>Historical Weather</h2></div><p class="note">Historical wind, gusts, direction and rainfall. API requests run through a local or Netlify server; keys are never included in the browser.</p><iframe title="Historical Weather Dashboard" src="weather.html" style="width:100%;min-height:1250px;border:0;border-radius:12px;background:#08111e" loading="lazy"></iframe>';
+ panels.weather.appendChild(weatherPanel);
  // V7.6: Separate BoB board with independent sportsbook odds, shared players/rounds.
  const bobPanel=document.createElement('div');bobPanel.className='panel';
  bobPanel.innerHTML=`<div class="panelhead"><h2>Birdies or Better (BoB) Board</h2><label class="gvm-board-round">Tournament round<select id="bobRound" aria-label="Tournament round on BoB Board"><option value="1">Round 1</option><option value="2">Round 2</option><option value="3">Round 3</option><option value="4">Round 4</option></select></label><span id="bobCount" class="help"></span></div>
@@ -734,7 +737,7 @@ $('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);i
  }
  const mini=document.createElement('span');mini.className='gvm-sync-mini';mini.id='gvm-sync-mini';mini.setAttribute('aria-live','polite');nav.appendChild(mini);
  const header=wrap.querySelector('header');header.insertAdjacentElement('afterend',nav);
- nav.after(panels.bestbets,panels.board,panels.bob,panels.bogey,panels.pars,panels.history,panels.setup,panels.imports,panels.cloud);
+ nav.after(panels.bestbets,panels.board,panels.bob,panels.bogey,panels.pars,panels.history,panels.weather,panels.setup,panels.imports,panels.cloud);
  // V8.2.10: Unified positive-ROI board; read-only, no changes to stored state.
  const bestPanel=document.createElement('div');bestPanel.className='panel';
  bestPanel.innerHTML=`<div class="panelhead"><h2>Best Bets</h2><span class="help" id="bestBetsCount"></span></div>

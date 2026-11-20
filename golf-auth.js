@@ -27,7 +27,13 @@
     const allow = async () => {
       const {data:{user}}=await client.auth.getUser();
       if(!user) return false;
-      // Allowlist is enforced by protected API functions; browser access alone grants no data access.
+      // Check server-side approved-user allowlist before revealing the UI.
+      let response;
+      try {
+        const {data:{session}}=await client.auth.getSession();
+        response=await fetch(URL+"/functions/v1/golf-authorize",{headers:{Authorization:"Bearer "+session.access_token,apikey:KEY}});
+      } catch {message.textContent="Authorization service unavailable. Try again shortly.";return false;}
+      if(!response.ok){message.textContent=response.status===403?"This account is not approved for the Golf Board.":"Authorization is not configured or temporarily unavailable.";return false;}
       document.body.classList.add("golf-auth-ready");screen.hidden=true;
       const logout=document.createElement("button");logout.type="button";logout.textContent="Sign out of Golf Board";logout.style.cssText="position:fixed;bottom:10px;right:10px;z-index:2000;font-size:12px";
       logout.onclick=async()=>{await client.auth.signOut();location.reload();};document.body.append(logout);

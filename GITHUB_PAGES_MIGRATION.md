@@ -21,7 +21,7 @@ This branch is isolated from `main` and does not change the live Netlify website
 
 ## Pending before enabling
 1. Verify the DataGolf proxy response formats against the live account and weather.html's event parser; test errors and rate limits.
-2. Configure Supabase function secrets `VISUAL_CROSSING_API_KEY`, `DATAGOLF_API_KEY`, and `GOLF_APPROVED_USER_IDS` (comma-separated Auth user UUIDs). Do not commit keys. The function intentionally returns 503 until configured.
+2. Configure Supabase function secrets `VISUAL_CROSSING_API_KEY` and `DATAGOLF_API_KEY` (authorization now uses the RLS-protected `golf_approved_users` table). Do not commit keys. The function intentionally returns 503 until configured.
 3. Deploy and test the login gate, authorization endpoint, magic-link callback, and existing cloud sync separately. A visual gate alone is not data security.
 4. Verify `weather.html` sends the authenticated JWT to all three new functions, with expected DataGolf response shape.
 5. Register `https://mattlocklear4.github.io/golf-value-monitor/` as an authorized Microsoft Entra SPA redirect URI and Supabase Auth redirect URL.
@@ -31,3 +31,13 @@ This branch is isolated from `main` and does not change the live Netlify website
 
 ## No live changes
 Do not merge this branch or retire Netlify until all tests pass. Do not expose private API keys in HTML/JS or a public GitHub repository.
+
+## 2026-11-20 implementation update
+- All four Edge Functions deployed to the existing Supabase project (ACTIVE, version 2): golf-authorize, golf-datagolf-schedule, golf-datagolf-history, golf-visualcrossing. Deployed is **not** equivalent to tested with valid credentials.
+- Created `public.golf_approved_users` with RLS and self-only SELECT. The one existing account with board state was approved (one approved user); authorization functions now check this table using the caller's JWT, not an environment-variable allowlist.
+- Reused the GitHub Pages auth session in the cloud-sync client; removed the redundant `github-pages-auth.js` implementation.
+- The historical DataGolf schedule fetch now sends an Authorization header.
+- Need to configure `DATAGOLF_API_KEY` and `VISUAL_CROSSING_API_KEY` in Supabase Edge Function secrets before either provider can work. Neither secret has been set by this migration.
+- Need to add `https://mattlocklear4.github.io/golf-value-monitor/?golf_login=1` to Supabase Auth URL Configuration and `https://mattlocklear4.github.io/golf-value-monitor/` to Microsoft Entra SPA redirect URIs. Avoid wildcard URLs.
+- Need to change repository visibility to public (after complete secret/history review) and enable GitHub Pages from main or GitHub Actions. No tool currently available to update visibility or Pages settings.
+- No end-to-end browser tests yet; do not merge or disable Netlify.

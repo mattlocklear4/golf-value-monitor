@@ -10,10 +10,11 @@ Deno.serve(async req=>{
  const token=req.headers.get("authorization")?.match(/^Bearer (.+)$/i)?.[1];
  if(!token)return reply({authorized:false},401);
  const url=Deno.env.get("SUPABASE_URL"),key=Deno.env.get("SUPABASE_ANON_KEY");
- const allowed=(Deno.env.get("GOLF_APPROVED_USER_IDS")||"").split(",").map(x=>x.trim()).filter(Boolean);
- if(!url||!key||!allowed.length)return reply({error:"Authorization not configured"},503);
- const client=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
+ if(!url||!key)return reply({error:"Authorization not configured"},503);
+ const client=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false},global:{headers:{Authorization:"Bearer "+token}}});
  const {data:{user},error}=await client.auth.getUser(token);
- if(error||!user||!allowed.includes(user.id))return reply({authorized:false},403);
+ if(error||!user)return reply({authorized:false},403);
+ const {data:approval,error:approvalError}=await client.from("golf_approved_users").select("user_id").eq("user_id",user.id).maybeSingle();
+ if(approvalError||!approval)return reply({authorized:false},403);
  return reply({authorized:true});
 });

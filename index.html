@@ -576,7 +576,7 @@ async function cloudConfigure(){
  if(!window.supabase?.createClient){cloudMsg('Supabase library did not load. Check internet access and refresh.');return;}
  cloudEnabled=false;cloudUser=null;clearTimeout(cloudTimer);cloudPauseUI();
  localStorage.setItem(CLOUD_CONFIG_KEY,JSON.stringify({url,key,email:$('cloudEmail').value.trim()}));
- cloudClient=window.supabase.createClient(url,key,{auth:{flowType:'pkce',detectSessionInUrl:false,autoRefreshToken:true,persistSession:true,storageKey:'gppb-v7-auth-'+new URL(url).hostname}});
+ cloudClient=(window.golfPagesAuth?.client && url==='https://gyyasyrcrbhimeyaddga.supabase.co')?window.golfPagesAuth.client:window.supabase.createClient(url,key,{auth:{flowType:'pkce',detectSessionInUrl:false,autoRefreshToken:true,persistSession:true,storageKey:'gppb-v7-auth-'+new URL(url).hostname}});
  cloudClient.auth.onAuthStateChange((event,session)=>{
   cloudUser=session?.user||null;cloudButtons();
   if(event==='SIGNED_OUT'){cloudEnabled=false;cloudMsg('Signed out. Browser data remains available.');}

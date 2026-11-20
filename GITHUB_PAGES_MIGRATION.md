@@ -10,6 +10,7 @@ This branch is isolated from `main` and does not change the live Netlify website
 - Repository is currently **private**. GitHub Pages on GitHub Free requires making it public; audit the entire repository for secrets first.
 
 ## Completed on migration branch
+- `github-pages-auth.js`: migration-only email magic-link login UI, uses public Supabase publishable key; index.html loads it on this branch. Existing cloud sync uses a separate client and needs session unification.
 - `supabase/functions/golf-visualcrossing/index.ts`: Visual Crossing proxy with server-side API key, Supabase user verification, explicit user-ID allowlist, date-range validation, bounded requests and restricted browser origin. No key is committed.
 - `supabase/functions/golf-datagolf-schedule/index.ts`: authenticated proxy to DataGolf's documented `/get-schedule` endpoint.
 - `supabase/functions/golf-datagolf-history/index.ts`: authenticated proxy to DataGolf's documented `/historical-raw-data/event-list` endpoint.

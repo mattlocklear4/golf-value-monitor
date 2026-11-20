@@ -23,11 +23,12 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const apiKey = Deno.env.get("VISUAL_CROSSING_API_KEY");
-  const approvedIds = (Deno.env.get("GOLF_APPROVED_USER_IDS") || "").split(",").map(x => x.trim()).filter(Boolean);
-  if (!supabaseUrl || !anonKey || !apiKey || !approvedIds.length) return reply({ error: "Function not configured" }, 503);
-  const client = createClient(supabaseUrl, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  if (!supabaseUrl || !anonKey || !apiKey) return reply({ error: "Function not configured" }, 503);
+  const client = createClient(supabaseUrl, anonKey, { auth: { persistSession: false, autoRefreshToken: false }, global: { headers: { Authorization: "Bearer " + token } } });
   const { data: { user }, error } = await client.auth.getUser(token);
-  if (error || !user || !approvedIds.includes(user.id)) return reply({ error: "Not authorized" }, 403);
+  if (error || !user) return reply({ error: "Not authorized" }, 403);
+  const { data: approval, error: approvalError } = await client.from("golf_approved_users").select("user_id").eq("user_id", user.id).maybeSingle();
+  if (approvalError || !approval) return reply({ error: "Not authorized" }, 403);
   const u = new URL(req.url);
   const location = u.searchParams.get("location")?.trim() || "";
   const start = u.searchParams.get("start") || "";

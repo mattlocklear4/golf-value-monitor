@@ -553,6 +553,7 @@ async function cloudRestore(){
 function cloudButtons(){const signed=cloudReady();$('cloudUpload').disabled=!signed;$('cloudDownload').disabled=!signed;$('cloudLogout').disabled=!signed;}
 function cloudCleanCallback(){const u=new URL(location.href);['code','token_hash','type','error','error_code','error_description'].forEach(k=>u.searchParams.delete(k));if(u.hash.includes('access_token=')||u.hash.includes('error='))u.hash='';history.replaceState({},'',u.pathname+u.search+u.hash);}
 async function cloudHandleCallback(){
+ if(new URL(location.href).searchParams.get('golf_login')==='1')return false;
  const u=new URL(location.href),q=u.searchParams,h=new URLSearchParams(u.hash.replace(/^#/,''));
  if(q.has('error')||h.has('error')){const msg=q.get('error_description')||h.get('error_description')||q.get('error')||h.get('error');cloudCleanCallback();throw Error(decodeURIComponent(msg));}
  if(q.has('code')){const code=q.get('code');const {data,error}=await cloudClient.auth.exchangeCodeForSession(code);if(error)throw Error(error.message);cloudCleanCallback();return !!data.session;}

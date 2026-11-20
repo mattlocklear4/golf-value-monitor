@@ -14,15 +14,19 @@ This branch is isolated from `main` and does not change the live Netlify website
 - `supabase/functions/golf-datagolf-schedule/index.ts`: authenticated proxy to DataGolf's documented `/get-schedule` endpoint.
 - `supabase/functions/golf-datagolf-history/index.ts`: authenticated proxy to DataGolf's documented `/historical-raw-data/event-list` endpoint.
 
+- `golf-auth.js` and `index.html`: Supabase magic-link login gate; server-verified approval required before revealing the board.
+- `supabase/functions/golf-authorize/index.ts`: checks authenticated user against approved user UUIDs.
+- `weather.html`: API calls now target Supabase functions with a bearer token from the shared Pages login session.
+
 ## Pending before enabling
 1. Verify the DataGolf proxy response formats against the live account and weather.html's event parser; test errors and rate limits.
 2. Configure Supabase function secrets `VISUAL_CROSSING_API_KEY`, `DATAGOLF_API_KEY`, and `GOLF_APPROVED_USER_IDS` (comma-separated Auth user UUIDs). Do not commit keys. The function intentionally returns 503 until configured.
-3. Add a GitHub Pages login gate with Supabase Auth; do not rely on a visual login gate as data security. Preserve existing cloud state and enforce authorization on all Edge Functions.
-4. Update `weather.html` to send the authenticated user's JWT to the new functions; keep Netlify routes intact on the production branch.
+3. Deploy and test the login gate, authorization endpoint, magic-link callback, and existing cloud sync separately. A visual gate alone is not data security.
+4. Verify `weather.html` sends the authenticated JWT to all three new functions, with expected DataGolf response shape.
 5. Register `https://mattlocklear4.github.io/golf-value-monitor/` as an authorized Microsoft Entra SPA redirect URI and Supabase Auth redirect URL.
 6. Check GitHub Pages path prefix `/golf-value-monitor/`, localStorage origin migration (export/import cached weather/history), and OneDrive workbook selection.
 7. Test each API, auth allowlist (authorized and unauthorized), OneDrive sign-in, Supabase sync, mobile/desktop layout, and all prop boards.
-8. Review repository privacy and secrets, then enable GitHub Pages only after explicit confirmation about making the repo public if necessary.
+8. User approved public source publication. Audit repository and Git history for secrets; user must switch repository visibility and enable GitHub Pages through GitHub settings (connector lacks settings operations).
 
 ## No live changes
 Do not merge this branch or retire Netlify until all tests pass. Do not expose private API keys in HTML/JS or a public GitHub repository.

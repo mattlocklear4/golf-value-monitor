@@ -74,6 +74,76 @@ async function golfWeatherFetch(url){
 const $=id=>document.getElementById(id);let chosen=new Set(['2025','2024']);const colors=['#5db6ff','#ffbd73','#59dfb3','#c5a3ff','#fa84a8','#e5d46c'];
 const WEATHER_LIBRARY={'bermuda':{name:'Bermuda Championship · Port Royal Golf Course',data:structuredClone(DATA),starts:{}}};
 const CACHE_KEY='golf-weather-library-v6';
+let weatherCloudReady=false,weatherCloudUser=null,weatherCloudTimer=null,weatherCloudBusy=false;
+const weatherCloudVersions=new Map();
+function weatherCloudStatus(message){const node=$('weatherCacheStatus');if(node)node.textContent=message}
+function queueWeatherCloudSync(){
+ if(!weatherCloudReady||!weatherCloudUser)return;
+ clearTimeout(weatherCloudTimer);
+ weatherCloudTimer=setTimeout(()=>syncWeatherCloud(true).catch(e=>weatherCloudStatus('Weather cloud sync: '+e.message)),1300);
+}
+async function syncWeatherCloud(pushLocal=false){
+ if(weatherCloudBusy)return;
+ weatherCloudBusy=true;
+ try{
+  const {data:{session},error:sessionError}=await golfWeatherClient.auth.getSession();
+  if(sessionError)throw sessionError;
+  if(!session?.user){weatherCloudReady=false;return}
+  weatherCloudUser=session.user.id;
+  const {data:remote,error}=await golfWeatherClient.from('user_weather_library').select('dataset_key,year,course_name,start_date,hourly_data,updated_at').eq('user_id',weatherCloudUser);
+  if(error)throw error;
+  const known=new Set();
+  let downloaded=0,uploaded=0;
+  for(const row of remote||[]){
+   const key=row.dataset_key,year=row.year,id=key+'|'+year;
+   known.add(id);
+   if(!Array.isArray(row.hourly_data))continue;
+   const local=WEATHER_LIBRARY[key]?.data?.[year];
+   const localVersion=weatherCloudVersions.get(id);
+   if(localVersion===row.updated_at&&local)continue;
+   if(local&&JSON.stringify(local)!==JSON.stringify(row.hourly_data)&&localVersion===undefined){
+    // Preserve existing browser data on first connection; do not silently overwrite it.
+    const backupKey=key+'-local-backup-'+year;
+    if(!WEATHER_LIBRARY[backupKey]){WEATHER_LIBRARY[backupKey]={name:(WEATHER_LIBRARY[key]?.name||row.course_name)+' (local backup)',data:{[year]:local},starts:{[year]:WEATHER_LIBRARY[key]?.starts?.[year]||''}};addCourseOption(backupKey,WEATHER_LIBRARY[backupKey].name)}
+   }
+   WEATHER_LIBRARY[key] ||= {name:row.course_name,data:{},starts:{}};
+   WEATHER_LIBRARY[key].name=displayWeatherName(row.course_name);
+   WEATHER_LIBRARY[key].data[year]=row.hourly_data;
+   WEATHER_LIBRARY[key].starts ||= {};
+   WEATHER_LIBRARY[key].starts[year]=row.start_date||'';
+   addCourseOption(key,WEATHER_LIBRARY[key].name);
+   weatherCloudVersions.set(id,row.updated_at);
+   downloaded++;
+  }
+  if(pushLocal||!weatherCloudReady){
+   for(const [key,item] of Object.entries(WEATHER_LIBRARY)){
+    if(key==='bermuda'||key.includes('-local-backup-'))continue;
+    for(const [year,rows] of Object.entries(item.data||{})){
+     const id=key+'|'+year;
+     if(known.has(id)||!Array.isArray(rows)||!rows.length)continue;
+     const {data:written,error:writeError}=await golfWeatherClient.from('user_weather_library').upsert({user_id:weatherCloudUser,dataset_key:key,year,course_name:displayWeatherName(item.name),start_date:item.starts?.[year]||null,hourly_data:rows,updated_at:new Date().toISOString()},{onConflict:'user_id,dataset_key,year',ignoreDuplicates:true}).select('updated_at').maybeSingle();
+     if(writeError)throw writeError;
+     if(written?.updated_at){weatherCloudVersions.set(id,written.updated_at);uploaded++}
+    }
+   }
+  }
+  if(downloaded){
+   // Store merged library without triggering a second upload.
+   const entries=Object.entries(WEATHER_LIBRARY).filter(([k])=>k!=='bermuda');
+   localStorage.setItem(CACHE_KEY,JSON.stringify({version:1,entries}));
+   const selected=$('course').value;
+   if(WEATHER_LIBRARY[selected])selectCourse(selected);
+   else{const first=Object.keys(WEATHER_LIBRARY).find(k=>k!=='bermuda');if(first){$('course').value=first;selectCourse(first)}}
+  }
+  weatherCloudReady=true;
+  weatherCloudStatus('Weather cloud sync active · '+(remote||[]).length+' cloud editions · '+downloaded+' downloaded · '+uploaded+' uploaded');
+ }finally{weatherCloudBusy=false}
+}
+async function startWeatherCloudSync(){
+ try{await syncWeatherCloud(true)}
+ catch(e){weatherCloudStatus('Weather cloud sync unavailable: '+e.message)}
+}
+
 let currentCourse='bermuda';
 function saveCurrent(){if(WEATHER_LIBRARY[currentCourse])WEATHER_LIBRARY[currentCourse].data=structuredClone(DATA)}
 function persistLibrary(){
@@ -81,6 +151,7 @@ function persistLibrary(){
   try{
     const entries=Object.entries(WEATHER_LIBRARY).filter(([k])=>k!=='bermuda');
     localStorage.setItem(CACHE_KEY,JSON.stringify({version:1,entries}));
+    queueWeatherCloudSync();
     $('weatherCacheStatus').textContent='Saved '+entries.length+' tournament dataset(s) in this browser. Export a backup to protect against browser storage cleanup.';
   }catch(e){$('weatherCacheStatus').textContent='Browser storage unavailable or full: '+e.message+'. Export your weather library to avoid losing data.'}
 }
@@ -148,6 +219,8 @@ function addCourse(key,name,year,rows,preSunday){
 function weekStart(y){return WEATHER_LIBRARY[currentCourse]?.starts?.[y]||(DATA[y]||[])[0]?.t.slice(0,10)||''}
 restoreLibrary();
 normalizeRsmLibrary();
+setTimeout(startWeatherCloudSync,250);
+setInterval(()=>{if(!document.hidden)syncWeatherCloud(true).catch(e=>weatherCloudStatus('Weather cloud sync: '+e.message))},60000);
 // Hide legacy Bermuda sample when real imported weather exists, preserving all saved rows.
 if (Object.keys(WEATHER_LIBRARY).some(key => key !== 'bermuda')) {
  const sampleOption = [...$('course').options].find(option => option.value === 'bermuda');

@@ -84,6 +84,29 @@ function restoreLibrary(){
   $('weatherCacheStatus').textContent='Restored '+saved.entries.length+' saved tournament dataset(s) from this browser.';
  }catch(e){$('weatherCacheStatus').textContent='Could not restore saved weather: '+e.message}
 }
+// DataGolf used "RSM Classic #2" for one edition. Treat all RSM editions as one
+// tournament across years, without modifying any hourly observations.
+function isRsmName(name){return /\\brsm\\s+classic(?:\\s*#\\s*2)?\\b/i.test(String(name||''))}
+function displayWeatherName(name){return isRsmName(name)?'The RSM Classic · Sea Island Golf Club (Seaside / Plantation Courses)':name}
+function normalizeRsmLibrary(){
+ const keys=Object.keys(WEATHER_LIBRARY).filter(k=>k!=='bermuda'&&isRsmName(WEATHER_LIBRARY[k]?.name));
+ if(!keys.length)return;
+ const target=keys[0];
+ const master=WEATHER_LIBRARY[target];
+ master.name=displayWeatherName(master.name);
+ master.starts ||= {};
+ for(const key of keys.slice(1)){
+  const entry=WEATHER_LIBRARY[key];
+  const conflict=Object.keys(entry.data||{}).some(y=>master.data[y]&&JSON.stringify(master.data[y])!==JSON.stringify(entry.data[y]));
+  if(conflict){entry.name=displayWeatherName(entry.name)+' (separate dataset)';continue}
+  for(const [y,rows] of Object.entries(entry.data||{})){if(!master.data[y])master.data[y]=rows}
+  for(const [y,start] of Object.entries(entry.starts||{})){if(!master.starts[y])master.starts[y]=start}
+  delete WEATHER_LIBRARY[key];
+  [...$('course').options].filter(o=>o.value===key).forEach(o=>o.remove());
+ }
+ const option=[...$('course').options].find(o=>o.value===target);
+ if(option)option.textContent=master.name;
+}
 function addCourseOption(key,name){if([...$('course').options].some(o=>o.value===key))return;const o=document.createElement('option');o.value=key;o.textContent=name;$('course').appendChild(o)}
 function selectCourse(key){
  if(!WEATHER_LIBRARY[key])return;
@@ -96,6 +119,11 @@ function selectCourse(key){
 $('course').addEventListener('change',e=>selectCourse(e.target.value));
 function addCourse(key,name,year,rows,preSunday){
  saveCurrent();
+ if(isRsmName(name)){
+  const existing=Object.keys(WEATHER_LIBRARY).find(k=>k!=='bermuda'&&isRsmName(WEATHER_LIBRARY[k]?.name)&&(!WEATHER_LIBRARY[k].data?.[year]||JSON.stringify(WEATHER_LIBRARY[k].data[year])===JSON.stringify(rows)));
+  if(existing)key=existing;
+  name=displayWeatherName(name);
+ }
  if(!WEATHER_LIBRARY[key])WEATHER_LIBRARY[key]={name,data:{},starts:{}};
  WEATHER_LIBRARY[key].name=name;
  WEATHER_LIBRARY[key].data[year]=rows;
@@ -108,6 +136,7 @@ function addCourse(key,name,year,rows,preSunday){
 }
 function weekStart(y){return WEATHER_LIBRARY[currentCourse]?.starts?.[y]||(DATA[y]||[])[0]?.t.slice(0,10)||''}
 restoreLibrary();
+normalizeRsmLibrary();
 // Hide legacy Bermuda sample when real imported weather exists, preserving all saved rows.
 if (Object.keys(WEATHER_LIBRARY).some(key => key !== 'bermuda')) {
  const sampleOption = [...$('course').options].find(option => option.value === 'bermuda');
@@ -116,7 +145,7 @@ if (Object.keys(WEATHER_LIBRARY).some(key => key !== 'bermuda')) {
  if (firstSaved) { $('course').value = firstSaved; selectCourse(firstSaved); }
 }
 $('weatherExport').onclick=()=>{persistLibrary();const data=JSON.stringify({version:1,entries:Object.entries(WEATHER_LIBRARY).filter(([k])=>k!=='bermuda')});const url=URL.createObjectURL(new Blob([data],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='golf-weather-library.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
-$('weatherImport').onchange=async e=>{try{const f=e.target.files?.[0];if(!f)return;const saved=JSON.parse(await f.text());if(saved?.version!==1||!Array.isArray(saved.entries))throw Error('Invalid library format');let count=0;for(const [key,item] of saved.entries){if(typeof key!=='string'||!item||!item.data||typeof item.name!=='string')continue;WEATHER_LIBRARY[key]=item;addCourseOption(key,item.name);count++}persistLibrary();$('weatherCacheStatus').textContent='Imported '+count+' tournament dataset(s).'}catch(err){$('weatherCacheStatus').textContent='Import failed: '+err.message}e.target.value=''};
+$('weatherImport').onchange=async e=>{try{const f=e.target.files?.[0];if(!f)return;const saved=JSON.parse(await f.text());if(saved?.version!==1||!Array.isArray(saved.entries))throw Error('Invalid library format');let count=0;for(const [key,item] of saved.entries){if(typeof key!=='string'||!item||!item.data||typeof item.name!=='string')continue;WEATHER_LIBRARY[key]=item;addCourseOption(key,item.name);count++}normalizeRsmLibrary();persistLibrary();$('weatherCacheStatus').textContent='Imported '+count+' tournament dataset(s).'}catch(err){$('weatherCacheStatus').textContent='Import failed: '+err.message}e.target.value=''};
 function years(){return Object.keys(DATA).sort((a,b)=>+b-+a)}function dayIndex(t,first){let a=Date.UTC(...first.slice(0,10).split('-').map((x,i)=>i===1?+x-1:+x));let b=Date.UTC(...t.slice(0,10).split('-').map((x,i)=>i===1?+x-1:+x));return Math.round((b-a)/86400000)}
 function active(){return $('view').value==='single'?[$('year').value]:years().filter(y=>chosen.has(y))}function filtered(y){const a=DATA[y]||[];if(!a.length)return[];let p=$('period').value,h=$('hours').value;return a.filter(r=>{let d=dayIndex(r.t,weekStart(y));return (p==='all'||p==='week'&&d>=0&&d<=7||+p===d&&p!=='week'&&p!=='all')&&(h==='all'||(+r.t.slice(11,13)>=7&&+r.t.slice(11,13)<=19))})}function fmt(n,d=1){return Number.isFinite(n)?n.toFixed(d):'—'}function stats(a){const avg=a.reduce((s,r)=>s+(+r.wind||0),0)/(a.length||1);return{avg,peak:Math.max(0,...a.map(r=>+r.gust||0)),rain:a.reduce((s,r)=>s+(+r.rain||0),0),n:a.length}}
 function plot(id,series,kind){let c=$(id),tip=$(id.replace('Chart','Tip'));let ctx=c.getContext('2d');let w=c.clientWidth,h=c.clientHeight,dpr=window.devicePixelRatio||1;c.width=Math.round(w*dpr);c.height=Math.round(h*dpr);ctx.scale(dpr,dpr);let left=48,right=14,top=(kind==='wind'||kind==='rain')?42:15,bottom=34,pw=w-left-right,ph=h-top-bottom;let n=Math.max(1,...series.map(s=>s.v.length));let max=Math.max(0.1,...series.flatMap(s=>s.v.map(v=>v??0)))*1.14;max=kind==='wind'?40:kind==='rain'?Math.max(.02,max):Math.max(5,max);ctx.font='11px system-ui';ctx.textAlign='right';ctx.fillStyle='#9fb6ce';ctx.strokeStyle='#29415a';for(let i=0;i<=4;i++){let y=top+ph*i/4;ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(w-right,y);ctx.stroke();ctx.fillText(fmt(max*(1-i/4),kind==='rain'?2:0),left-8,y+4)}// Calendar-day bands follow the actual displayed timestamps, so filters and comparisons stay aligned.

@@ -108,6 +108,13 @@ function addCourse(key,name,year,rows,preSunday){
 }
 function weekStart(y){return WEATHER_LIBRARY[currentCourse]?.starts?.[y]||(DATA[y]||[])[0]?.t.slice(0,10)||''}
 restoreLibrary();
+// Hide legacy Bermuda sample when real imported weather exists, preserving all saved rows.
+if (Object.keys(WEATHER_LIBRARY).some(key => key !== 'bermuda')) {
+ const sampleOption = [...$('course').options].find(option => option.value === 'bermuda');
+ if (sampleOption) sampleOption.remove();
+ const firstSaved = Object.keys(WEATHER_LIBRARY).find(key => key !== 'bermuda');
+ if (firstSaved) { $('course').value = firstSaved; selectCourse(firstSaved); }
+}
 $('weatherExport').onclick=()=>{persistLibrary();const data=JSON.stringify({version:1,entries:Object.entries(WEATHER_LIBRARY).filter(([k])=>k!=='bermuda')});const url=URL.createObjectURL(new Blob([data],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='golf-weather-library.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 $('weatherImport').onchange=async e=>{try{const f=e.target.files?.[0];if(!f)return;const saved=JSON.parse(await f.text());if(saved?.version!==1||!Array.isArray(saved.entries))throw Error('Invalid library format');let count=0;for(const [key,item] of saved.entries){if(typeof key!=='string'||!item||!item.data||typeof item.name!=='string')continue;WEATHER_LIBRARY[key]=item;addCourseOption(key,item.name);count++}persistLibrary();$('weatherCacheStatus').textContent='Imported '+count+' tournament dataset(s).'}catch(err){$('weatherCacheStatus').textContent='Import failed: '+err.message}e.target.value=''};
 function years(){return Object.keys(DATA).sort((a,b)=>+b-+a)}function dayIndex(t,first){let a=Date.UTC(...first.slice(0,10).split('-').map((x,i)=>i===1?+x-1:+x));let b=Date.UTC(...t.slice(0,10).split('-').map((x,i)=>i===1?+x-1:+x));return Math.round((b-a)/86400000)}

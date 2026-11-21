@@ -213,7 +213,7 @@ el('dgHistory').onclick=async()=>{
   try{
    if(y===seasonYear)match=base;
    else if(y>=2024){
-    const r=await golfWeatherFetch('https://gyyasyrcrbhimeyaddga.supabase.co/functions/v1/golf-datagolf-schedule?tour=+encodeURIComponent(tour)+'&season='+y);
+    const r=await golfWeatherFetch('https://gyyasyrcrbhimeyaddga.supabase.co/functions/v1/golf-datagolf-schedule?tour='+encodeURIComponent(tour)+'&season='+y);
     if(!r.ok)throw Error('Schedule HTTP '+r.status);
     match=eventsFrom(await r.json()).find(e=>historyMatch(base,e))||null;
    }

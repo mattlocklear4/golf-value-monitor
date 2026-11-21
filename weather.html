@@ -88,8 +88,9 @@ function createWeatherCloudBanner(){
  const btn=document.createElement('button');btn.textContent='Sync weather now';btn.type='button';btn.style.cssText='padding:8px 12px;background:#187c62;color:white;border:1px solid #3d9c82;border-radius:7px;cursor:pointer';
  btn.onclick=async()=>{btn.disabled=true;weatherCloudStatus('Syncing weather…');try{await syncWeatherCloud(true)}catch(e){weatherCloudStatus('Weather cloud sync failed: '+e.message)}finally{btn.disabled=false}};
  banner.append(status,btn);
- const target=document.querySelector('main')||document.querySelector('.wrap')||document.body;
- target.insertBefore(banner,target.firstChild);
+ const controls=document.querySelector('main .panel .controls');
+ if(controls)controls.parentNode.insertBefore(banner,controls);
+ else document.body.insertBefore(banner,document.body.firstChild);
 }
 
 function queueWeatherCloudSync(){

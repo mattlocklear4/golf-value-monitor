@@ -132,7 +132,7 @@ async function syncWeatherCloud(pushLocal=false){
    const entries=Object.entries(WEATHER_LIBRARY).filter(([k])=>k!=='bermuda');
    localStorage.setItem(CACHE_KEY,JSON.stringify({version:1,entries}));
    const selected=$('course').value;
-   if(WEATHER_LIBRARY[selected])selectCourse(selected);
+   if(WEATHER_LIBRARY[selected]){currentCourse=selected;Object.keys(DATA).forEach(y=>delete DATA[y]);Object.assign(DATA,structuredClone(WEATHER_LIBRARY[selected].data));chosen=new Set(Object.keys(DATA));setupYears();$('year').value=years()[0]||'';render();}
    else{const first=Object.keys(WEATHER_LIBRARY).find(k=>k!=='bermuda');if(first){$('course').value=first;selectCourse(first)}}
   }
   weatherCloudReady=true;

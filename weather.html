@@ -76,7 +76,22 @@ const WEATHER_LIBRARY={'bermuda':{name:'Bermuda Championship · Port Royal Golf 
 const CACHE_KEY='golf-weather-library-v6';
 let weatherCloudReady=false,weatherCloudUser=null,weatherCloudTimer=null,weatherCloudBusy=false;
 const weatherCloudVersions=new Map();
-function weatherCloudStatus(message){const node=$('weatherCacheStatus');if(node)node.textContent=message}
+function weatherCloudStatus(message){
+ const node=$('weatherCacheStatus');if(node)node.textContent=message;
+ const banner=document.getElementById('weatherCloudBanner');if(banner)banner.querySelector('span').textContent=message;
+}
+function createWeatherCloudBanner(){
+ if(document.getElementById('weatherCloudBanner'))return;
+ const banner=document.createElement('div');banner.id='weatherCloudBanner';
+ banner.style.cssText='display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:12px 15px;margin:10px auto;border:1px solid #42617d;border-radius:10px;background:#14283b;color:#dcefff;font:13px system-ui';
+ const status=document.createElement('span');status.textContent='Checking weather cloud sync…';
+ const btn=document.createElement('button');btn.textContent='Sync weather now';btn.type='button';btn.style.cssText='padding:8px 12px;background:#187c62;color:white;border:1px solid #3d9c82;border-radius:7px;cursor:pointer';
+ btn.onclick=async()=>{btn.disabled=true;weatherCloudStatus('Syncing weather…');try{await syncWeatherCloud(true)}catch(e){weatherCloudStatus('Weather cloud sync failed: '+e.message)}finally{btn.disabled=false}};
+ banner.append(status,btn);
+ const target=document.querySelector('main')||document.querySelector('.wrap')||document.body;
+ target.insertBefore(banner,target.firstChild);
+}
+
 function queueWeatherCloudSync(){
  if(!weatherCloudReady||!weatherCloudUser)return;
  clearTimeout(weatherCloudTimer);
@@ -88,7 +103,7 @@ async function syncWeatherCloud(pushLocal=false){
  try{
   const {data:{session},error:sessionError}=await golfWeatherClient.auth.getSession();
   if(sessionError)throw sessionError;
-  if(!session?.user){weatherCloudReady=false;return}
+  if(!session?.user){weatherCloudReady=false;weatherCloudStatus('Weather cloud sync: not signed in. Open the Golf Board and sign in first.');return}
   weatherCloudUser=session.user.id;
   const {data:remote,error}=await golfWeatherClient.from('user_weather_library').select('dataset_key,year,course_name,start_date,hourly_data,updated_at').eq('user_id',weatherCloudUser);
   if(error)throw error;
@@ -219,6 +234,7 @@ function addCourse(key,name,year,rows,preSunday){
 function weekStart(y){return WEATHER_LIBRARY[currentCourse]?.starts?.[y]||(DATA[y]||[])[0]?.t.slice(0,10)||''}
 restoreLibrary();
 normalizeRsmLibrary();
+createWeatherCloudBanner();
 setTimeout(startWeatherCloudSync,250);
 setInterval(()=>{if(!document.hidden)syncWeatherCloud(true).catch(e=>weatherCloudStatus('Weather cloud sync: '+e.message))},60000);
 // Hide legacy Bermuda sample when real imported weather exists, preserving all saved rows.

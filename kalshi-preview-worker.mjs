@@ -24,7 +24,9 @@ export default {
   upstream.searchParams.set('limit',String(limit));
   if(cursor)upstream.searchParams.set('cursor',cursor);
   try{
-   const response=await fetch(upstream,{headers:{accept:'application/json'},redirect:'error'});
+   // Cloudflare Workers supports manual/follow, not redirect:'error'.
+   // Manual preserves the fixed upstream host: any 3xx becomes a 502 below.
+   const response=await fetch(upstream,{headers:{accept:'application/json'},redirect:'manual'});
    if(!response.ok)return new Response(JSON.stringify({error:'Kalshi HTTP '+response.status}),{status:502,headers});
    const raw=await response.text();
    if(raw.length>3_000_000)throw Error('Kalshi response exceeds size limit');

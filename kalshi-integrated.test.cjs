@@ -1,6 +1,9 @@
 // Verifies that the integrated Kalshi view consumes the real board's projection function.
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const index=fs.readFileSync(__dirname+'/index.html','utf8');
+// The Setup panel is detached until nav.after(): a document lookup returns null.
+assert.match(index,/setupKalshiRound=panels\.setup\.querySelector\('#round'\)/,'Kalshi selector resolves in detached Setup');
+assert.doesNotMatch(index,/setupKalshiRound=document\.getElementById\('round'\)/,'navigation regression');
 const projectionSource=index.match(/function projection\(p\)\{[^\n]+\}/)?.[0];
 const snapshotSource=index.match(/window\.gvmKalshiSnapshot=\(\)=>\(\{[^\n]+\}\);/)?.[0];
 assert.ok(projectionSource&&snapshotSource,'read-only board model adapter exists');

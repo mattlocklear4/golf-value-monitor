@@ -4,7 +4,7 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const script=fs.readFileSync(__dirname+'/kalshi-prototype.js','utf8').split("$('boardload').addEventListener")[0];
 const fields={round:{value:'1'},qty:{value:'100'},multiplier:{value:'1'},event:{value:'',options:[],replaceChildren(...args){this.options=args},add(option){this.options.push(option)}},search:{value:''},minroi:{value:'-100'},series:{value:'KXPGAROUNDSCORE'},load:{disabled:false},status:{},matchstatus:{},rows:{children:[],replaceChildren(...args){this.children=args},appendChild(child){this.children.push(child)}},projections:{value:''},pcount:{},boardstatus:{}};
-const context={document:{getElementById:id=>fields[id],createElement:tag=>({tag,children:[],appendChild(child){this.children.push(child)}})},Option:function(label,value){this.label=label;this.value=value},URL,AbortController,setTimeout,clearTimeout,console};
+const context={location:{hostname:'golf-kalshi-roundscore-preview.statelyoffer11.chatgpt.site',origin:'https://golf-kalshi-roundscore-preview.statelyoffer11.chatgpt.site'},document:{getElementById:id=>fields[id],createElement:tag=>({tag,children:[],appendChild(child){this.children.push(child)}})},Option:function(label,value){this.label=label;this.value=value},URL,AbortController,setTimeout,clearTimeout,console};
 vm.createContext(context);vm.runInContext(script,context);
 const run=expression=>vm.runInContext(expression,context);
 const valid={ticker:'KXPGAROUNDSCORE-THRC26R3-DGHI68',event_ticker:'KXPGAROUNDSCORE-THRC26R3',status:'active',strike_type:'less',cap_strike:69,rules_primary:'If Doug Ghim records under 68.5 strokes in Round 3 of the 2026 The RSM Classic, then the market resolves to Yes.',yes_sub_title:'R3: Doug Ghim under 68.5 strokes',yes_ask_dollars:'0.4500',no_ask_dollars:'0.5700'};
@@ -39,7 +39,7 @@ assert.equal(fields.rows.children[0].children[2].textContent,'Unverified','rules
 assert.equal(fields.rows.children[0].children[8].textContent,'—','unverified rule never gets ROI');
 (async()=>{
  let requests=0;
- context.fetch=async url=>{requests++;assert.equal(url.searchParams.get('series_ticker'),'KXPGAROUNDSCORE');return {ok:true,json:async()=>({markets:[valid],cursor:''})};};
+ context.fetch=async url=>{requests++;assert.equal(url.pathname,'/api/kalshi/markets');assert.equal(url.searchParams.get('series_ticker'),'KXPGAROUNDSCORE');return {ok:true,json:async()=>({markets:[valid],cursor:''})};};
  await vm.runInContext('fetchMarkets()',context);
  assert.equal(requests,1,'live refresh calls open series API');
  assert.equal(fields.rows.children.length,1,'refresh displays live quote');

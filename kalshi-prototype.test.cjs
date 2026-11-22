@@ -1,0 +1,24 @@
+// Run with: node kalshi-prototype.test.cjs (no packages or live network required).
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const script=fs.readFileSync(__dirname+'/kalshi-prototype.js','utf8').split("$('boardload').addEventListener")[0];
+const fields={round:{value:'3'},qty:{value:'100'},multiplier:{value:'1'},event:{value:'KXPGAROUNDSCORE-THRC26R3'},search:{value:''},minroi:{value:'-100'},status:{},matchstatus:{},rows:{replaceChildren(){},appendChild(){}},projections:{value:''},pcount:{},boardstatus:{}};
+const context={document:{getElementById:id=>fields[id]},URL,AbortController,setTimeout,clearTimeout,console};
+vm.createContext(context);vm.runInContext(script,context);
+const run=expression=>vm.runInContext(expression,context);
+const valid={ticker:'KXPGAROUNDSCORE-THRC26R3-DGHI68',event_ticker:'KXPGAROUNDSCORE-THRC26R3',status:'active',strike_type:'less',cap_strike:69,rules_primary:'If Doug Ghim records under 68.5 strokes in Round 3 of the 2026 The RSM Classic, then the market resolves to Yes.',yes_sub_title:'R3: Doug Ghim under 68.5 strokes',yes_ask_dollars:'0.4500',no_ask_dollars:'0.5700'};
+assert.equal(run('parseRule('+JSON.stringify(valid)+').line'),68.5);
+assert.equal(run('parseRule('+JSON.stringify(valid)+').direction'),'under');
+assert.equal(run('parseRule('+JSON.stringify({...valid,cap_strike:68})+')'),null);
+assert.equal(run('parseRule('+JSON.stringify({...valid,rules_primary:valid.rules_primary.replace('Round 3','Round 2')})+')'),null);
+assert.equal(run('parseRule('+JSON.stringify({...valid,rules_primary:valid.rules_primary.replace('68.5','68')})+')'),null);
+assert.equal(run('parseRule('+JSON.stringify({...valid,rules_primary:valid.rules_primary.replace('Doug Ghim','Someone Else')})+')'),null);
+assert.equal(run('fee(.5,100,1)'),1.75);
+assert.equal(run('fee(.5,1,1)'),.02);
+assert.equal(run('valuation(.6,.5,100,1).roi'),(60-50-1.75)/51.75);
+assert.ok(Math.abs(run('cdf(0)')-.5)<1e-9);
+assert.ok(Math.abs(run('cdf((68.5-68.5)/3)')-.5)<1e-9);
+assert.equal(run('price('+JSON.stringify(valid)+',"yes")'),.45);
+assert.ok(Number.isNaN(run('price('+JSON.stringify({...valid,yes_ask_dollars:'0.0000'})+',"yes")')));
+console.log('Kalshi parser, strict matching, pricing and fees: 13 checks passed');

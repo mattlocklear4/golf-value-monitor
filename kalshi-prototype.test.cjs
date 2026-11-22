@@ -49,6 +49,11 @@ assert.equal(fields.rows.children[0].children[10].textContent,'$0.57','dollars v
 assert.equal(fields.rows.children[0].children[8].textContent,americanROI,'display toggle does not modify ROI');
 assert.equal(fields.rows.children[0].children[11].textContent,'$1.72','display toggle does not modify fee');
 fields.oddsformat.value='american';run('render()');
+fields.positive.checked=true;
+run('accept({markets: ['+JSON.stringify({...valid,yes_ask_dollars:'0.9900',no_ask_dollars:'0.9900'})+']})');
+assert.match(fields.matchstatus.textContent,/^0 visible contracts/,'positive-ROI filter excludes negative edge markets');
+fields.positive.checked=false;run('accept({markets: ['+JSON.stringify(valid)+']})');
+assert.equal(fields.rows.children[0].children[6].textContent,'+122','clearing positive filter restores quotes');
 run('accept({markets: ['+JSON.stringify({...valid,rules_primary:'Settlement text changed'})+']})');
 assert.equal(fields.rows.children.length,1,'unverified rule still displays quote');
 assert.equal(fields.rows.children[0].children[2].textContent,'Unverified','rules are never inferred from ticker');
@@ -66,5 +71,5 @@ assert.equal(fields.rows.children[0].children[8].textContent,'—','unverified r
  await vm.runInContext('fetchMarkets()',context);
  assert.equal(fields.rows.children.length,1,'failed refresh preserves prior markets');
  assert.match(fields.status.textContent,/Refresh failed: network unavailable/);
- console.log('Kalshi parser, American odds toggle, matching, pricing, fees and refresh: 41 checks passed');
+ console.log('Kalshi parser, American odds, positive-edge filter, matching, pricing, fees and refresh: 43 checks passed');
 })().catch(error=>{console.error(error);process.exitCode=1});

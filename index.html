@@ -189,6 +189,9 @@ function fair(p){if(p<=0||p>=1)return '—';return p>=.5?'−'+Math.round(100*p/
 function roi(p,o){return p*(o>0?o/100:100/-o)-(1-p);}
 function pct(v){return (100*v).toFixed(1)+'%';}
 function projection(p){let d=roundData(),a=average(d.players),k=4.1,f=number(d.field),par=number(d.par);return Number.isFinite(a)&&Number.isFinite(k)&&k>0&&Number.isFinite(f)&&Number.isFinite(par)?par+f-(p.dg-a)/k:NaN;}
+// Feature-branch Kalshi adapter: one read-only view of the *existing* board model.
+// No duplicate DataGolf calculation, localStorage write, or cloud operation.
+window.gvmKalshiSnapshot=()=>({round:current,aliases:{...aliases},players:roundData().players.map(p=>({name:p.name,mu:projection(p),sd:getSd(p).sd,sdSource:getSd(p).source}))});
 
 // Column F from DataGolf: a trailing * denotes hole 10, not part of the time.
 function parseTeeTime(raw){
@@ -660,11 +663,11 @@ $('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);i
   setup:[findHeading('Round & scoring model'),findHeading('Tournament scoring standard deviations'),sections.find(el=>el.id==='qualityPanel')],
   imports:[findHeading('Round Score sportsbook odds import')],
   cloud:[sections.find(el=>el.id==='cloudPanel'),sections.find(el=>el.id==='oneDrivePanel')],
-  bestbets:[],bob:[],bogey:[],pars:[],history:[],historytables:[],weather:[]
+  bestbets:[],bob:[],bogey:[],pars:[],kalshi:[],history:[],historytables:[],weather:[]
  };
  const nav=document.createElement('nav');nav.className='gvm-tabs';nav.setAttribute('aria-label','Dashboard sections');
  const panels={};const buttons={};
- const labels={bestbets:'Best Bets',board:'Round Score Board',bob:'BoB Board',bogey:'Bogey+ Board',pars:'Pars Board',history:'Tournament History',historytables:'Tournament History Tables',weather:'Historical Weather',setup:'Setup & Imports',imports:'Sportsbook Odds Import',cloud:'Cloud & OneDrive'};
+ const labels={bestbets:'Best Bets',board:'Round Score Board',bob:'BoB Board',bogey:'Bogey+ Board',pars:'Pars Board',kalshi:'Kalshi Round Score',history:'Tournament History',historytables:'Tournament History Tables',weather:'Historical Weather',setup:'Setup & Imports',imports:'Sportsbook Odds Import',cloud:'Cloud & OneDrive'};
  for(const key of Object.keys(labels)){
   const btn=document.createElement('button');btn.type='button';btn.className='gvm-tab';btn.textContent=labels[key];btn.id='gvm-tab-'+key;btn.setAttribute('role','tab');btn.setAttribute('aria-controls','gvm-panel-'+key);
   const panel=document.createElement('section');panel.id='gvm-panel-'+key;panel.className='gvm-tab-panel';panel.setAttribute('role','tabpanel');panel.setAttribute('aria-labelledby',btn.id);
@@ -699,6 +702,13 @@ $('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);i
  <div class="tablewrap board-wrap"><table class="board-table"><thead><tr class="group-head"><th class="frozen player-col" rowspan="2">Player</th><th class="frozen tee-col" rowspan="2">Tee Time</th><th class="frozen proj-col" rowspan="2">Pars Proj.</th>${BOOKS.map((b,i)=>'<th class="group '+['dk','fd','cz','fn'][i]+'" colspan="7">'+b+'</th>').join('')}</tr><tr class="subhead">${BOOKS.map(()=>'<th class="book-start">Line</th><th>Over</th><th>Fair O</th><th>O ROI</th><th>Under</th><th>Fair U</th><th>U ROI</th>').join('')}</tr></thead><tbody id="parsBody"></tbody></table></div>
  <p class="note">Pars = 18 − projected BoB − projected Bogey+. Projections are bounded to 0–18. Fair odds use Binomial(n=18, p=projected Pars/18); no StDev input is needed.</p>`;
  panels.pars.appendChild(parsPanel);
+ const kalshiPanel=document.createElement('div');kalshiPanel.className='panel';
+ kalshiPanel.innerHTML='<h2>Kalshi Golfer Round Scores <span class="tag">Read-only test</span></h2><p class="note">Uses the selected round, DataGolf fantasy projections, field prediction, and player StDev already loaded in this board. No second import is needed. Prices are live; fair odds are model estimates.</p><label class="gvm-board-round">Tournament round<select id="kalshiBoardRound" aria-label="Round for Kalshi comparison"><option value="1">Round 1</option><option value="2">Round 2</option><option value="3">Round 3</option><option value="4">Round 4</option></select></label><iframe id="gvmKalshiFrame" title="Integrated Kalshi Round Score Board" src="kalshi-prototype.html?integrated=1" style="width:100%;height:1150px;border:0;border-radius:12px;background:#0b1220" loading="lazy"></iframe>';
+ panels.kalshi.appendChild(kalshiPanel);
+ const kalshiRound=kalshiPanel.querySelector('#kalshiBoardRound'),setupKalshiRound=document.getElementById('round');
+ kalshiRound.value=setupKalshiRound.value;
+ kalshiRound.addEventListener('change',()=>{setupKalshiRound.value=kalshiRound.value;setupKalshiRound.dispatchEvent(new Event('change',{bubbles:true}));});
+ setupKalshiRound.addEventListener('change',()=>{kalshiRound.value=setupKalshiRound.value;});
 
 
  const bobImport=document.createElement('div');bobImport.className='panel';bobImport.innerHTML=`<h2>BoB &amp; Bogey+ coefficient models</h2><p class="note">OneDrive workbook worksheet <strong>PGA BoB Bogey+</strong>: A Player, B BoB Intercept, C BoB Coefficient, D Bogey+ Intercept, E Bogey+ Coefficient. Refresh in Cloud &amp; OneDrive to update both sheets. Or import the same XLSX workbook locally for testing.</p><div class="toolbar"><label>Upload workbook (.xlsx)<input type="file" id="bobFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></label></div><p class="status" id="bobImportStatus">No coefficient models imported yet.</p><h3>BoB sportsbook odds import</h3><p class="note">Same four-column TSV as Round Score: Player Name, Line, Over Odds, Under Odds. Imports replace only the selected book's BoB odds for the current round.</p><div class="toolbar"><label>Sportsbook<select id="bobBook">${BOOKS.map(b=>'<option>'+b+'</option>').join('')}</select></label></div><textarea id="bobPaste" rows="5" placeholder="Doug Ghim&#9;4.5&#9;-110&#9;-110"></textarea><div class="toolbar"><button class="primary" id="bobImport">Import BoB odds</button><button id="bobClear">Clear selected book's BoB odds</button></div><p class="status" id="bobImportMsg"></p>`;
@@ -743,7 +753,7 @@ $('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);i
  }
  const mini=document.createElement('span');mini.className='gvm-sync-mini';mini.id='gvm-sync-mini';mini.setAttribute('aria-live','polite');nav.appendChild(mini);
  const header=wrap.querySelector('header');header.insertAdjacentElement('afterend',nav);
- nav.after(panels.bestbets,panels.board,panels.bob,panels.bogey,panels.pars,panels.history,panels.historytables,panels.weather,panels.setup,panels.imports,panels.cloud);
+ nav.after(panels.bestbets,panels.board,panels.bob,panels.bogey,panels.pars,panels.kalshi,panels.history,panels.historytables,panels.weather,panels.setup,panels.imports,panels.cloud);
  // V8.2.10: Unified positive-ROI board; read-only, no changes to stored state.
  const bestPanel=document.createElement('div');bestPanel.className='panel';
  bestPanel.innerHTML=`<div class="panelhead"><h2>Best Bets</h2><span class="help" id="bestBetsCount"></span></div>

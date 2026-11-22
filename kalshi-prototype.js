@@ -1,7 +1,9 @@
 'use strict';
 // Isolated, read-only Kalshi prototype. Nothing here writes localStorage or cloud state.
 const $ = id => document.getElementById(id);
-const API = 'https://api.elections.kalshi.com/trade-api/v2/markets';
+// Isolated Sites preview proxies public Kalshi data because the exchange endpoint
+// omits Access-Control-Allow-Origin. Other static hosts still use direct requests.
+const API = location.hostname.endsWith('.chatgpt.site') ? location.origin+'/api/kalshi/markets' : 'https://api.elections.kalshi.com/trade-api/v2/markets';
 const normalize = value => String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 const aliases = {'benjamin james':'ben james','john keefer':'johnny keefer','jordan smith':'jordan l smith','hao tong li':'haotong li'};
 let projections = new Map(), markets = [], fetchedAt = null, fetching = false, lastError = '';

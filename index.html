@@ -705,7 +705,9 @@ $('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);i
  const kalshiPanel=document.createElement('div');kalshiPanel.className='panel';
  kalshiPanel.innerHTML='<h2>Kalshi Golfer Round Scores <span class="tag">Read-only test</span></h2><p class="note">Uses the selected round, DataGolf fantasy projections, field prediction, and player StDev already loaded in this board. No second import is needed. Prices are live; fair odds are model estimates.</p><label class="gvm-board-round">Tournament round<select id="kalshiBoardRound" aria-label="Round for Kalshi comparison"><option value="1">Round 1</option><option value="2">Round 2</option><option value="3">Round 3</option><option value="4">Round 4</option></select></label><iframe id="gvmKalshiFrame" title="Integrated Kalshi Round Score Board" src="kalshi-prototype.html?integrated=1" style="width:100%;height:1150px;border:0;border-radius:12px;background:#0b1220" loading="lazy"></iframe>';
  panels.kalshi.appendChild(kalshiPanel);
- const kalshiRound=kalshiPanel.querySelector('#kalshiBoardRound'),setupKalshiRound=document.getElementById('round');
+ // Setup was moved into a detached panel; document lookup would be null here.
+ const kalshiRound=kalshiPanel.querySelector('#kalshiBoardRound'),setupKalshiRound=panels.setup.querySelector('#round');
+ if(!setupKalshiRound)throw new Error('Round selector missing from Setup panel');
  kalshiRound.value=setupKalshiRound.value;
  kalshiRound.addEventListener('change',()=>{setupKalshiRound.value=kalshiRound.value;setupKalshiRound.dispatchEvent(new Event('change',{bubbles:true}));});
  setupKalshiRound.addEventListener('change',()=>{kalshiRound.value=setupKalshiRound.value;});

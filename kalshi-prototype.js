@@ -7,6 +7,7 @@ const API = location.hostname.endsWith('.chatgpt.site') ? location.origin+'/api/
 const normalize = value => String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 const aliases = {'benjamin james':'ben james','john keefer':'johnny keefer','jordan smith':'jordan l smith','hao tong li':'haotong li'};
 let projections = new Map(), markets = [], fetchedAt = null, fetching = false, lastError = '';
+let books=new Map(),booksFetchedAt=null,booksError='',booksFetching=false;
 const integrated = new URLSearchParams(location.search).get('integrated')==='1' && window.parent!==window;
 let lastIntegratedSignature='';
 function erf(x){const sign=x<0?-1:1;x=Math.abs(x);const t=1/(1+.3275911*x);return sign*(1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-.284496736)*t+.254829592)*t*Math.exp(-x*x));}
@@ -21,6 +22,24 @@ function americanOdds(probability){
  return (odds>0?'+':'-')+rounded;
 }
 const quoteDisplay = n => $('oddsformat').value==='american'?americanOdds(n):dollars(n);
+function bestOrderbookAsk(payload,side){
+ const bids=payload?.orderbook_fp?.[side==='yes'?'no_dollars':'yes_dollars'];
+ if(!Array.isArray(bids))return null;
+ let best=null;
+ for(const level of bids){
+  if(!Array.isArray(level)||level.length<2)continue;
+  const bid=Number(level[0]),depth=Number(level[1]);
+  if(!Number.isFinite(bid)||bid<=0||bid>=1||!Number.isFinite(depth)||depth<=0)continue;
+  if(!best||bid>best.bid)best={bid,ask:Number((1-bid).toFixed(4)),depth};
+ }
+ return best;
+}
+function liveQuote(m,side,qty){
+ const stored=books.get(m.ticker),book=stored?.[side];
+ if(book)return {ask:book.ask,depth:book.depth,checkedAt:stored.checkedAt,sizeChecked:book.depth>=qty,source:'orderbook'};
+ const indicative=price(m,side);
+ return {ask:indicative,depth:askDepth(m,side),checkedAt:null,sizeChecked:false,source:'indicative'};
+}
 const betSide = (rule,side) => !rule?null:(side==='yes'?rule.direction:(rule.direction==='under'?'over':'under'));
 const betLabel = (rule,side) => !rule?'Settlement unverified':betSide(rule,side).toUpperCase()+' '+rule.line.toFixed(1);
 const quoteUpdatedAt = m => Date.parse(m.updated_time||'');
@@ -31,6 +50,8 @@ function askDepth(m,side){
  const n=Number(value);return Number.isFinite(n)&&n>=0?n:null;
 }
 function quoteWarning(m,side,qty){
+ const live=liveQuote(m,side,qty);
+ if(live.source==='orderbook')return live.sizeChecked?'Book top level covers order · fill not guaranteed':'Book depth below order size';
  const age=quoteAgeMs(m),depth=askDepth(m,side);
  if(!Number.isFinite(age))return 'Unknown update time · verify quote';
  if(age>120000)return 'Market update >2 min old · verify quote';
@@ -124,6 +145,7 @@ function accept(data){
  const seen=new Set(),next=[];
  for(const m of data.markets){if(!m||typeof m.ticker!=='string'||seen.has(m.ticker))continue;if(!m.ticker.startsWith('KXPGAROUNDSCORE-'))continue;seen.add(m.ticker);if(['active','open'].includes(m.status))next.push(m);}
  markets=next;fetchedAt=new Date();lastError='';
+ books=new Map();booksFetchedAt=null;booksError='';
  const eventOptions=new Map();for(const m of markets){const rule=parseRule(m),event=m.event_ticker;
   if(typeof event==='string'&&!eventOptions.has(event))eventOptions.set(event,rule?rule.competition+' · Round '+rule.round:event+' · settlement unverified');}
  const old=$('event').value,select=$('event');select.replaceChildren(new Option('Choose tournament and round',''));
@@ -132,6 +154,29 @@ function accept(data){
  syncRoundToEvent();
  render();
 }
+async function fetchOrderbooks(){
+ if(booksFetching)return;booksFetching=true;
+ const requestedEvent=$('event').value,tickerList=[...new Set(markets.filter(m=>m.event_ticker===requestedEvent).map(m=>m.ticker))].slice(0,40);
+ const next=new Map(),errors=[];
+ try{
+  // Bounded concurrency and timeouts avoid excessive exchange requests.
+  async function one(ticker){
+   try{
+    const base=location.hostname.endsWith('.chatgpt.site')?location.origin+'/api/kalshi/orderbook/':'https://api.elections.kalshi.com/trade-api/v2/markets/';
+    const url=base+encodeURIComponent(ticker)+(location.hostname.endsWith('.chatgpt.site')?'':'/orderbook');
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),4500);
+    let response;
+    try{response=await fetch(url,{headers:{Accept:'application/json'},cache:'no-store',signal:controller.signal});}finally{clearTimeout(timer);}
+    if(!response.ok)throw Error('HTTP '+response.status);
+    const payload=await response.json();
+    if(!Array.isArray(payload?.orderbook_fp?.yes_dollars)||!Array.isArray(payload?.orderbook_fp?.no_dollars))throw Error('Invalid orderbook');
+    next.set(ticker,{yes:bestOrderbookAsk(payload,'yes'),no:bestOrderbookAsk(payload,'no'),checkedAt:new Date()});
+   }catch(e){errors.push(ticker+': '+e.message);}
+  }
+  for(let i=0;i<tickerList.length;i+=4)await Promise.all(tickerList.slice(i,i+4).map(one));
+  if($('event').value===requestedEvent){books=next;booksFetchedAt=new Date();booksError=errors.length?`${errors.length} orderbooks unavailable`:'';}
+ }finally{booksFetching=false;render();}
+}
 function syncRoundToEvent(){if(integrated)return;const event=$('event').value,match=event.match(/R([1-4])$/);if(match)$('round').value=match[1];}
 function renderBestBets(candidates,qty){
  const min=Math.max(0,Number($('bestmin').value)||0)/100,sideFilter=$('bestside').value,freshOnly=$('bestfresh').checked,depthOnly=$('bestdepth').checked,sort=$('bestsort').value;
@@ -139,9 +184,9 @@ function renderBestBets(candidates,qty){
  for(const r of candidates){
   if(!r.rule||!r.p)continue;
   for(const side of ['yes','no']){
-   const evaluation=r[side==='yes'?'y':'n'],ask=r[side==='yes'?'ya':'na'],prob=r[side==='yes'?'yes':'no'],mapped=betSide(r.rule,side),depth=askDepth(r.m,side);
+   const evaluation=r[side==='yes'?'y':'n'],quote=liveQuote(r.m,side,qty),ask=quote.ask,prob=r[side==='yes'?'yes':'no'],mapped=betSide(r.rule,side),depth=quote.depth;
    if(sideFilter!=='all'&&mapped!==sideFilter)continue;
-   if(!Number.isFinite(ask)||!Number.isFinite(evaluation.roi)||evaluation.roi<=0||evaluation.roi<min)continue;
+   if(!quote.sizeChecked||!Number.isFinite(ask)||!Number.isFinite(evaluation.roi)||evaluation.roi<=0||evaluation.roi<min)continue;
    if(freshOnly&&quoteAgeMs(r.m)>120000)continue;
    if(depthOnly&&(depth===null||depth<qty))continue;
    bets.push({...r,side,mapped,ask,prob,roi:evaluation.roi,depth});
@@ -153,7 +198,7 @@ function renderBestBets(candidates,qty){
   cells.forEach((value,i)=>{const td=document.createElement('td');td.textContent=value;if(i===0)td.className='bet-side';if(i===5)td.className='good';if(i===8&&quoteAgeMs(r.m)>120000)td.className='warn';tr.appendChild(td);});body.appendChild(tr);
  }
  if(!bets.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=9;td.textContent='No verified positive edges match these filters. Check the active round, player projections, minimum ROI and quote/depth restrictions.';tr.appendChild(td);body.appendChild(tr);}
- $('beststatus').textContent=`${bets.length} positive model edges · ${fetchedAt?'API retrieved '+fetchedAt.toLocaleString():'API not yet retrieved'} · Quote prices are indicative; market update time is not a quote-specific timestamp.`;
+ $('beststatus').textContent=`${bets.length} top-of-book size-checked positive edges · ${fetchedAt?'Market API '+fetchedAt.toLocaleString():'Market API pending'} · ${booksFetchedAt?'Orderbooks checked '+booksFetchedAt.toLocaleString():'Orderbooks pending'}${booksError?' · '+booksError:''}. Book snapshots can change before an order fills.`;
 }
 function render(){
  const selected=$('event').value,round=$('round').value,query=normalize($('search').value),min=Number($('minroi').value),qty=Number($('qty').value),multiplier=Number($('multiplier').value);
@@ -168,22 +213,32 @@ function render(){
   const p=roundMatches?modelFor(rule.name):null;if(!p)stats.unmatched++;else stats.matched++;
   if(query&&!normalize((rule?.name||m.title||'')+' '+m.ticker).includes(query))continue;
   const yes=p?(rule.direction==='under'?cdf((rule.line-p.mu)/p.sd):1-cdf((rule.line-p.mu)/p.sd)):NaN,no=Number.isFinite(yes)?1-yes:NaN;
-  const ya=price(m,'yes'),na=price(m,'no');if(!Number.isFinite(ya)&&!Number.isFinite(na))stats.unpriced++;
-  const y=valuation(yes,ya,qty,multiplier),n=valuation(no,na,qty,multiplier);
+  const yesQuote=liveQuote(m,'yes',qty),noQuote=liveQuote(m,'no',qty),ya=yesQuote.ask,na=noQuote.ask;if(!Number.isFinite(ya)&&!Number.isFinite(na))stats.unpriced++;
+  // An indicative market ask or thin book is not an executable-size model ROI.
+  const y=valuation(yesQuote.sizeChecked?yes:NaN,ya,qty,multiplier),n=valuation(noQuote.sizeChecked?no:NaN,na,qty,multiplier);
   allCandidates.push({rule,p,m,yes,no,ya,na,y,n});
-  if(positiveOnly&&(!p||Math.max(y.roi,n.roi)<=0))continue;
-  if(p&&Number.isFinite(min)&&Math.max(y.roi,n.roi)<min)continue;
+  const actionable=Math.max(...[y.roi,n.roi].filter(Number.isFinite),-Infinity);
+  if(positiveOnly&&(!p||actionable<=0))continue;
+  if(p&&Number.isFinite(min)&&Number.isFinite(actionable)&&actionable<min)continue;
   rows.push({rule,p,m,yes,no,ya,na,y,n});
  }
  const best=r=>Math.max(...[r.y.roi,r.n.roi].filter(Number.isFinite),-Infinity);
  rows.sort((a,b)=>sort==='player'?(a.rule?.name||a.m.title||'').localeCompare(b.rule?.name||b.m.title||''):sort==='line'?(a.rule?.line??Infinity)-(b.rule?.line??Infinity):sort==='volume'?Number(b.m.volume_fp||0)-Number(a.m.volume_fp||0):best(b)-best(a));
  const body=$('rows');body.replaceChildren();
- for(const r of rows){const tr=document.createElement('tr'),quoteTime=quoteTimeText(r.m)+(quoteAgeMs(r.m)>120000?' · market stale':'')+' · '+quoteWarning(r.m,'yes',qty);const cells=[(r.rule?.name||r.m.title||'Unverified contract')+' · '+r.m.ticker,r.rule?.round||'—',r.rule?betLabel(r.rule,'yes')+' (YES) / '+betLabel(r.rule,'no')+' (NO)':'Unverified',r.p?r.p.mu.toFixed(2):'—',r.p?r.p.sd.toFixed(2):'—',percent(r.yes)+' / '+americanOdds(r.yes),quoteDisplay(r.ya),dollars(r.y.fee),percent(r.y.roi),percent(r.no)+' / '+americanOdds(r.no),quoteDisplay(r.na),dollars(r.n.fee),percent(r.n.roi),r.m.volume_fp||'—',quoteTime];
+ const compact=$('compactrows');compact.replaceChildren();
+ for(const r of rows){const tr=document.createElement('tr'),quoteTime=quoteTimeText(r.m)+(quoteAgeMs(r.m)>120000?' · market stale':'')+' · '+quoteWarning(r.m,'yes',qty);const cells=[(r.rule?.name||r.m.title||'Unverified contract')+' · '+r.m.ticker,r.rule?.round||'—',r.rule?betLabel(r.rule,'yes')+' (YES) / '+betLabel(r.rule,'no')+' (NO)':'Unverified',r.p?r.p.mu.toFixed(2):'—',r.p?r.p.sd.toFixed(2):'—',percent(r.yes)+' / '+americanOdds(r.yes),quoteDisplay(r.ya)+(liveQuote(r.m,'yes',qty).source==='orderbook'?' · book':' · indicative'),dollars(r.y.fee),percent(r.y.roi),percent(r.no)+' / '+americanOdds(r.no),quoteDisplay(r.na)+(liveQuote(r.m,'no',qty).source==='orderbook'?' · book':' · indicative'),dollars(r.n.fee),percent(r.n.roi),r.m.volume_fp||'—',quoteTime];
   cells.forEach((value,i)=>{const td=document.createElement('td');td.textContent=value;if(i===0)td.title=r.m.rules_primary+'\n'+(r.m.rules_secondary||'');if(i===6||i===10)td.title='Underlying Kalshi ask: '+dollars(i===6?r.ya:r.na)+' per $1 contract, before fees';if(i===8||i===12)td.className=Number.isFinite(i===8?r.y.roi:r.n.roi)?(i===8?r.y.roi:r.n.roi)>0?'good':'bad':'';tr.appendChild(td);});body.appendChild(tr);
+  for(const side of ['yes','no']){
+   const quote=liveQuote(r.m,side,qty),evaluation=side==='yes'?r.y:r.n,prob=side==='yes'?r.yes:r.no;
+   const c=document.createElement('tr'),bet=r.rule?betLabel(r.rule,side):'Settlement unverified';
+   const values=[r.rule?.name||r.m.title||'Unknown player',bet,r.p?r.p.mu.toFixed(2):'—',quoteDisplay(quote.ask),americanOdds(prob),percent(evaluation.roi),quote.depth===null?'—':String(quote.depth),quote.sizeChecked?'Top-of-book size checked':quote.source==='orderbook'?'Thin book — indicative':'Market only — indicative'];
+   values.forEach((value,i)=>{const td=document.createElement('td');td.textContent=value;if(i===1)td.className='bet-side';if(i===5&&Number.isFinite(evaluation.roi))td.className=evaluation.roi>0?'good':'bad';if(i===3)td.title='Price before fees, $'+(Number.isFinite(quote.ask)?quote.ask.toFixed(2):'—')+' per contract';c.appendChild(td);});compact.appendChild(c);
+  }
  }
  if(!rows.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=15;td.textContent=markets.length?'No contracts match the selected filters. Try the other round/event or clear search.':'No open contracts returned yet. Refresh markets or inspect the API error above.';tr.appendChild(td);body.appendChild(tr);}
+ if(!rows.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=8;td.textContent='No contracts match the selected filters.';tr.appendChild(td);compact.appendChild(tr);}
  $('matchstatus').textContent=`${rows.length} visible contracts · ${stats.matched} model matches · ${stats.unmatched} without projections/rule verification · ${stats.unrecognized} settlement rules unverified · ${stats.unpriced} missing both asks. Unverified contracts show quotes only, never model ROI.`;
- $('status').textContent=(lastError?'Refresh failed: '+lastError+' · Showing previously retrieved data.\n':'')+`${markets.length} open series contracts · ${selected||'Select a tournament'} · ${fetchedAt?'API retrieved '+fetchedAt.toLocaleString():'API not yet retrieved'} · Kalshi market updated time is per-contract, not proof of a live fill.`;
+ $('status').textContent=(lastError?'Refresh failed: '+lastError+' · Showing previously retrieved data.\n':'')+`${markets.length} open series contracts · ${selected||'Select a tournament'} · ${fetchedAt?'Market API retrieved '+fetchedAt.toLocaleString():'Market API pending'} · ${booksFetchedAt?'Orderbooks retrieved '+booksFetchedAt.toLocaleString():'Orderbooks pending'} · Market updated_time is not a quote timestamp.`;
  renderBestBets(allCandidates,qty);
 }
 async function fetchMarkets(){
@@ -197,7 +252,7 @@ async function fetchMarkets(){
    const response=await fetch(url,{headers:{Accept:'application/json'},cache:'no-store',signal:controller.signal});if(!response.ok)throw Error('HTTP '+response.status);
    const data=await response.json();if(!Array.isArray(data.markets))throw Error('Invalid Kalshi response.');all.push(...data.markets);cursor=data.cursor||'';if(!cursor){complete=true;break;}
   }
-  if(!complete)throw Error('Too many pages; previous market data preserved.');accept({markets:all});
+  if(!complete)throw Error('Too many pages; previous market data preserved.');accept({markets:all});await fetchOrderbooks();
  }catch(e){lastError=e.name==='AbortError'?'Timed out after 20 seconds':e.message;render();}
  finally{clearTimeout(timer);fetching=false;$('load').disabled=false;}
 }
@@ -206,8 +261,12 @@ $('boardload').addEventListener('click',loadBoard);$('parse').addEventListener('
 document.querySelectorAll('.panel')[2].querySelector('.toolbar').insertAdjacentHTML('beforeend','<label>Sort contracts<select id="sort"><option value="roi">Highest fee-adjusted ROI</option><option value="player">Player</option><option value="line">Threshold</option><option value="volume">Volume</option></select></label><label><input id="positive" type="checkbox"> Positive ROI only</label>');
 const bestPanel=document.createElement('section');bestPanel.className='panel';bestPanel.id='bestKalshiPanel';
 bestPanel.innerHTML='<h2>3 · Best Kalshi Bets <span class="good">Positive model edges</span></h2><div class="toolbar"><label>Minimum fee-adjusted ROI %<input id="bestmin" type="number" min="0" step="1" value="0"></label><label>Bet side<select id="bestside"><option value="all">Over and Under</option><option value="over">Over only</option><option value="under">Under only</option></select></label><label>Sort by<select id="bestsort"><option value="roi">Highest ROI</option><option value="player">Player A–Z</option><option value="odds">Highest payout</option><option value="fresh">Newest market update</option></select></label><label><input id="bestfresh" type="checkbox"> Market update within 2 min</label><label><input id="bestdepth" type="checkbox"> Reported ask depth covers order</label></div><p class="muted">Settlement-verified, round-matched positive edges only. Prices are indicative, not guaranteed fills; a recently updated market is not necessarily a recently updated quote.</p><p id="beststatus" class="muted"></p><div class="scroll"><table><thead><tr><th>Bet / Player</th><th>Round</th><th>Kalshi before fees</th><th>Fair American odds</th><th>Fair probability</th><th>Fee-adjusted ROI</th><th>Ask depth</th><th>Market updated</th><th>Quote caution</th></tr></thead><tbody id="bestrows"></tbody></table></div>';
+bestPanel.querySelector('#bestmin').value='3'; // Adjustable 3% default.
 const pricePanel=document.querySelectorAll('main > section.panel')[2];pricePanel.parentNode.insertBefore(bestPanel,pricePanel);
+const compactWrap=document.createElement('div');compactWrap.className='scroll';compactWrap.innerHTML='<table class="compact-kalshi"><thead><tr><th>Player</th><th>Over / Under</th><th>Projection</th><th>Kalshi American odds (before fees)</th><th>Fair American odds</th><th>Fee-adjusted ROI</th><th>Ask depth</th><th>Quote status</th></tr></thead><tbody id="compactrows"></tbody></table>';pricePanel.insertBefore(compactWrap,pricePanel.querySelector('.scroll'));
+const advanced=document.createElement('details');advanced.className='kalshi-advanced';advanced.innerHTML='<summary>Advanced YES / NO contract details, timestamps and volume</summary>';advanced.appendChild(pricePanel.querySelectorAll('.scroll')[1]);pricePanel.appendChild(advanced);
 const extraStyles=document.createElement('style');extraStyles.textContent='#bestKalshiPanel{border-color:#357a66}#bestKalshiPanel table{min-width:1020px}#bestKalshiPanel th:first-child,#bestKalshiPanel td:first-child{position:static}#bestKalshiPanel td:first-child{font-weight:750;color:#e6f3ff}#bestKalshiPanel .toolbar label:has(input[type=checkbox]){flex-direction:row;align-items:center}';document.head.appendChild(extraStyles);
+const compactStyles=document.createElement('style');compactStyles.textContent='.compact-kalshi{min-width:980px}.compact-kalshi td:first-child{font-weight:700}.compact-kalshi td:nth-child(4),.compact-kalshi td:nth-child(5),.compact-kalshi td:nth-child(6){white-space:nowrap}.kalshi-advanced{margin-top:12px}.kalshi-advanced summary{cursor:pointer;color:#afd9ee;margin:8px 0}';document.head.appendChild(compactStyles);
 pricePanel.querySelector('h2').textContent='4 · All Kalshi contracts and model comparison';
 const columnTitles=pricePanel.querySelectorAll('thead th');columnTitles[2].textContent='Verified YES / NO betting sides';columnTitles[5].textContent='Fair YES % / American odds';columnTitles[9].textContent='Fair NO % / American odds';
 for(const id of ['bestmin','bestside','bestsort','bestfresh','bestdepth'])$(id).addEventListener('input',render);
@@ -217,7 +276,7 @@ $('projectionfile').addEventListener('change',importProjectionFile);
 $('parsejson').addEventListener('click',()=>{try{accept(JSON.parse($('json').value));}catch(e){lastError=e.message;render();}});
 $('load').addEventListener('click',fetchMarkets);
 for(const id of ['round','search','qty','multiplier','minroi','oddsformat','positive','sort'])$(id).addEventListener('input',render);
-$('event').addEventListener('change',()=>{syncRoundToEvent();render();});
+$('event').addEventListener('change',()=>{syncRoundToEvent();books=new Map();booksFetchedAt=null;render();fetchOrderbooks();});
 setInterval(()=>{if($('autorefresh').checked&&!document.hidden)fetchMarkets();},60000);
 if(integrated){document.body.classList.add('integrated');document.querySelectorAll('.panel')[0].hidden=true;document.querySelector('main>p').textContent='Using the parent Golf Board’s active round, score projections and StDev automatically. No separate import or cloud write. Markets for other rounds remain quote-only.';syncIntegratedModel();setInterval(syncIntegratedModel,1500);}else loadBoard();
 fetchMarkets();

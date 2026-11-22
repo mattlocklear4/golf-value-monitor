@@ -1,0 +1,65 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kalshi Golfer Round Scores</title><style>
+:root{color-scheme:dark;font-family:system-ui,Arial;color:#eaf1fc;background:#101c2d}*{box-sizing:border-box}body{margin:0;padding:14px;background:#101c2d}h2{margin:0 0 7px}p,.muted{color:#a7bad2;font-size:13px}button,select,input{background:#203653;color:white;border:1px solid #45617d;border-radius:8px;padding:10px;font:inherit}button{cursor:pointer}button.primary{background:#197b5c}button:disabled{opacity:.5}.toolbar{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin:16px 0}.toolbar label{display:grid;gap:5px;font-size:12px;color:#a7bad2}.toolbar input{width:200px}.status{background:#16283e;border:1px solid #35516d;border-radius:9px;padding:12px;margin:12px 0}.scroll{overflow:auto;border:1px solid #344d6b;border-radius:10px}table{width:100%;border-collapse:collapse;min-width:950px;font-size:13px}th,td{padding:10px;border-bottom:1px solid #31445c;text-align:right;white-space:nowrap}th{background:#20334b;position:sticky;top:0}th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:#17283d;z-index:1}th:first-child{z-index:2}.good{color:#53e4a9;font-weight:700}.bad{color:#f4a5a5}.pill{display:inline-block;background:#29445c;border-radius:20px;padding:3px 9px}.foot{margin-top:12px;color:#a7bad2;font-size:12px}</style></head><body>
+<h2>Kalshi · Golfer Round Scores</h2><p>Read-only market monitor. Uses your current Golf Board score projections and player-specific round standard deviations. Prices are indicative public YES/NO asks, not guaranteed fills.</p>
+<div class="toolbar"><label>Round<select id="round"><option value="1">Round 1</option><option value="2">Round 2</option><option value="3">Round 3</option><option value="4">Round 4</option></select></label><label>Search player<input id="search" placeholder="Filter players"></label><label>Minimum ROI %<input id="minroi" type="number" value="0" step="1"></label><label>Series ticker<input id="series" value="KXPGAROUNDSCORE" spellcheck="false"></label><button class="primary" id="refresh">Refresh Kalshi markets</button></div>
+<div class="status" id="status">Waiting for Golf Board projections…</div><div class="scroll"><table><thead><tr><th>Player / Contract</th><th>Round</th><th>Projection</th><th>StDev</th><th>YES prob.</th><th>YES ask</th><th>YES ROI*</th><th>NO ask</th><th>NO ROI*</th><th>Volume</th><th>Updated</th></tr></thead><tbody id="rows"><tr><td colspan="11">No markets loaded.</td></tr></tbody></table></div><p class="foot">*ROI is before Kalshi fees. Contract settlement rules and the exact score threshold must be verified before wagering. Markets with ambiguous score/round rules or unmatched players are excluded. Kalshi quotes may be delayed or unavailable; this board never places trades.</p>
+<script>
+'use strict';
+const $=id=>document.getElementById(id),base='https://external-api.kalshi.com/trade-api/v2';
+let projections={},markets=[],lastFetched=null,loading=false;
+const clean=s=>String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+const aliases={'ben james':'benjamin james','johnny keefer':'john keefer','jordan l smith':'jordan smith'};
+function erf(x){const sign=x<0?-1:1;x=Math.abs(x);const t=1/(1+.3275911*x);return sign*(1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-.284496736)*t+.254829592)*t*Math.exp(-x*x));}
+const cdf=z=>.5*(1+erf(z/Math.SQRT2));
+const pct=p=>Number.isFinite(p)?(100*p).toFixed(1)+'%':'—';
+const usd=v=>Number.isFinite(v)?(v*100).toFixed(1)+'¢':'—';
+const price=v=>{const n=Number(v);return Number.isFinite(n)&&n>0&&n<1?n:NaN};
+function extractMarket(m){
+ const text=[m.title,m.subtitle,m.yes_sub_title,m.rules_primary].filter(Boolean).join(' ');
+ const round=(text.match(/(?:round|rnd|r)\s*([1-4])\b/i)||[])[1];
+ // Only explicit inclusive score thresholds. Never infer from a ticker or from a vague "over".
+ const threshold=text.match(/(?:score|shoot|shoots|shooting|strokes?)\s*(?:of\s*)?(\d{2})(?:\s*or\s*(lower|less|under|better|higher|more|over|worse))?/i)
+  ||text.match(/(\d{2})\s*or\s*(lower|less|under|better|higher|more|over|worse)/i);
+ if(!threshold||!threshold[2]||!round)return null;
+ const direction=/lower|less|under|better/i.test(threshold[2])?'under':'over';
+ const score=Number(threshold[1]);if(score<55||score>95)return null;
+ // Find an exact full player-name mention, longest first; don't use fuzzy guesses.
+ const candidates=Object.values(projections[round]||{}).sort((a,b)=>b.name.length-a.name.length);
+ const hay=' '+clean(text)+' ';
+ const p=candidates.find(p=>hay.includes(' '+clean(p.name)+' ')||Object.entries(aliases).some(([a,b])=>clean(p.name)===b&&hay.includes(' '+a+' ')));
+ if(!p)return null;
+ return {p,round,score,direction,market:m};
+}
+function render(){
+ const q=clean($('search').value),min=Number($('minroi').value)||0,round=$('round').value;
+ const results=[];
+ for(const m of markets){const hit=extractMarket(m);if(!hit||hit.round!==round)continue;
+ const {p,score,direction}=hit;if(q&&!clean(p.name).includes(q))continue;
+ const under=cdf((score+.5-p.mean)/p.sd),yes=direction==='under'?under:1-under;
+ const ya=price(m.yes_ask_dollars),na=price(m.no_ask_dollars);
+ const yroi=Number.isFinite(ya)?100*(yes-ya)/ya:NaN,nroi=Number.isFinite(na)?100*(1-yes-na)/na:NaN;
+ if(Math.max(yroi,nroi)<min)continue;
+ results.push({...hit,yes,ya,na,yroi,nroi});
+ }
+ results.sort((a,b)=>Math.max(b.yroi,b.nroi)-Math.max(a.yroi,a.nroi));
+ const body=$('rows');body.replaceChildren();
+ for(const r of results){const tr=document.createElement('tr');const vals=[r.p.name+' · '+r.score+' or '+(r.direction==='under'?'lower':'higher'),r.round,r.p.mean.toFixed(2),r.p.sd.toFixed(2),pct(r.yes),usd(r.ya),pct(r.yroi/100),usd(r.na),pct(r.nroi/100),r.market.volume_fp||'—',r.market.updated_time?new Date(r.market.updated_time).toLocaleTimeString():'—'];
+ vals.forEach((v,i)=>{const td=document.createElement('td');td.textContent=v;if(i===6||i===8)td.className=(i===6?r.yroi:r.nroi)>0?'good':'bad';tr.appendChild(td)});body.appendChild(tr)}
+ if(!results.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=11;td.textContent='No confidently matched round-score O/U contracts for this round. Check series, market availability, and matching rules.';tr.appendChild(td);body.appendChild(tr)}
+ const count=Object.values(projections[round]||{}).length;
+ $('status').textContent=count+' projected golfers in Round '+round+' · '+markets.length+' Kalshi markets retrieved · '+results.length+' matched offers'+(lastFetched?' · Updated '+lastFetched.toLocaleTimeString():'');
+}
+async function fetchMarkets(){
+ if(loading)return;loading=true;$('refresh').disabled=true;$('status').textContent='Fetching Kalshi markets…';
+ try{const series=$('series').value.trim().toUpperCase();if(!/^[A-Z0-9-]{3,64}$/.test(series))throw Error('Invalid series ticker');
+ let all=[],cursor='';for(let i=0;i<12;i++){const url=new URL(base+'/markets');url.searchParams.set('series_ticker',series);url.searchParams.set('status','open');url.searchParams.set('limit','1000');if(cursor)url.searchParams.set('cursor',cursor);
+ const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw Error('Kalshi HTTP '+res.status);const data=await res.json();all.push(...(data.markets||[]));cursor=data.cursor||'';if(!cursor)break}
+ markets=all;lastFetched=new Date();render();
+ }catch(e){$('status').textContent='Kalshi refresh failed: '+e.message+'. Market data was not changed.'}finally{loading=false;$('refresh').disabled=false}
+}
+window.addEventListener('message',e=>{if(e.origin!==location.origin||e.source!==parent||e.data?.type!=='golf-kalshi-projections')return;projections=e.data.rounds||{};render()});
+$('round').onchange=()=>{parent.postMessage({type:'golf-kalshi-request',round:$('round').value},location.origin);render()};
+$('search').oninput=render;$('minroi').oninput=render;$('refresh').onclick=fetchMarkets;
+parent.postMessage({type:'golf-kalshi-request'},location.origin);fetchMarkets();
+setInterval(()=>{if(!document.hidden)fetchMarkets()},60000);
+</script></body></html>

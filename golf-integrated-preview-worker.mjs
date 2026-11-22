@@ -10,6 +10,21 @@ export default {
    const mime=path.endsWith('.js')?'text/javascript':path.endsWith('.html')?'text/html':'text/plain';
    return new Response(files.get(path),{headers:{'content-type':mime+'; charset=utf-8','cache-control':'no-store'}});
   }
+  // Public orderbook proxy: a fixed series only, one strictly validated ticker.
+  // No credentials, private endpoints, trading methods, or arbitrary upstream URLs.
+  if(path.startsWith('/api/kalshi/orderbook/')){
+   const ticker=path.slice('/api/kalshi/orderbook/'.length);
+   if(url.search||!/^[A-Z0-9-]{12,140}$/.test(ticker)||!ticker.startsWith('KXPGAROUNDSCORE-'))return new Response(JSON.stringify({error:'Invalid public market ticker'}),{status:400,headers:jsonHeaders});
+   try{
+    const upstream=new URL('/trade-api/v2/markets/'+encodeURIComponent(ticker)+'/orderbook',kalshiOrigin);
+    const response=await fetch(upstream,{headers:{accept:'application/json'},redirect:'manual'});
+    if(!response.ok)return new Response(JSON.stringify({error:'Kalshi orderbook HTTP '+response.status}),{status:502,headers:jsonHeaders});
+    const raw=await response.text();if(raw.length>250_000)throw Error('Oversized orderbook response');
+    const data=JSON.parse(raw),book=data.orderbook_fp;
+    if(!book||!Array.isArray(book.yes_dollars)||!Array.isArray(book.no_dollars))throw Error('Unexpected orderbook payload');
+    return new Response(JSON.stringify({orderbook_fp:{yes_dollars:book.yes_dollars,no_dollars:book.no_dollars}}),{headers:jsonHeaders});
+   }catch(e){return new Response(JSON.stringify({error:'Kalshi orderbook retrieval failed: '+e.message}),{status:502,headers:jsonHeaders});}
+  }
   if(path!=='/api/kalshi/markets')return new Response('Not found',{status:404});
   const allowed=['series_ticker','status','limit','cursor'];
   const series=url.searchParams.get('series_ticker'),status=url.searchParams.get('status'),limit=Number(url.searchParams.get('limit')),cursor=url.searchParams.get('cursor');

@@ -186,7 +186,7 @@ function renderBestBets(candidates,qty){
   for(const side of ['yes','no']){
    const evaluation=r[side==='yes'?'y':'n'],quote=liveQuote(r.m,side,qty),ask=quote.ask,prob=r[side==='yes'?'yes':'no'],mapped=betSide(r.rule,side),depth=quote.depth;
    if(sideFilter!=='all'&&mapped!==sideFilter)continue;
-   if(!quote.sizeChecked||!Number.isFinite(ask)||!Number.isFinite(evaluation.roi)||evaluation.roi<=0||evaluation.roi<min)continue;
+   if(!Number.isFinite(ask)||!Number.isFinite(evaluation.roi)||evaluation.roi<=0||evaluation.roi<min)continue;
    if(freshOnly&&quoteAgeMs(r.m)>120000)continue;
    if(depthOnly&&(depth===null||depth<qty))continue;
    bets.push({...r,side,mapped,ask,prob,roi:evaluation.roi,depth});
@@ -197,8 +197,8 @@ function renderBestBets(candidates,qty){
  for(const r of bets){const tr=document.createElement('tr');const cells=[r.rule.name+' · '+betLabel(r.rule,r.side),r.rule.round,quoteDisplay(r.ask),americanOdds(r.prob),percent(r.prob),percent(r.roi),r.depth===null?'Not reported':String(r.depth),quoteTimeText(r.m),quoteWarning(r.m,r.side,qty)];
   cells.forEach((value,i)=>{const td=document.createElement('td');td.textContent=value;if(i===0)td.className='bet-side';if(i===5)td.className='good';if(i===8&&quoteAgeMs(r.m)>120000)td.className='warn';tr.appendChild(td);});body.appendChild(tr);
  }
- if(!bets.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=9;td.textContent='No verified positive edges match these filters. Check the active round, player projections, minimum ROI and quote/depth restrictions.';tr.appendChild(td);body.appendChild(tr);}
- $('beststatus').textContent=`${bets.length} top-of-book size-checked positive edges · ${fetchedAt?'Market API '+fetchedAt.toLocaleString():'Market API pending'} · ${booksFetchedAt?'Orderbooks checked '+booksFetchedAt.toLocaleString():'Orderbooks pending'}${booksError?' · '+booksError:''}. Book snapshots can change before an order fills.`;
+ if(!bets.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=9;td.textContent='No positive model edges match these filters. Check the active round, player projections, minimum ROI and quote/depth restrictions.';tr.appendChild(td);body.appendChild(tr);}
+ $('beststatus').textContent=`${bets.length} theoretical positive edges at displayed ask · ${fetchedAt?'Market API '+fetchedAt.toLocaleString():'Market API pending'} · ${booksFetchedAt?'Orderbooks checked '+booksFetchedAt.toLocaleString():'Orderbooks pending'}${booksError?' · '+booksError:''}. Book snapshots can change before an order fills.`;
 }
 function render(){
  const selected=$('event').value,round=$('round').value,query=normalize($('search').value),min=Number($('minroi').value),qty=Number($('qty').value),multiplier=Number($('multiplier').value);
@@ -215,7 +215,7 @@ function render(){
   const yes=p?(rule.direction==='under'?cdf((rule.line-p.mu)/p.sd):1-cdf((rule.line-p.mu)/p.sd)):NaN,no=Number.isFinite(yes)?1-yes:NaN;
   const yesQuote=liveQuote(m,'yes',qty),noQuote=liveQuote(m,'no',qty),ya=yesQuote.ask,na=noQuote.ask;if(!Number.isFinite(ya)&&!Number.isFinite(na))stats.unpriced++;
   // An indicative market ask or thin book is not an executable-size model ROI.
-  const y=valuation(yesQuote.sizeChecked?yes:NaN,ya,qty,multiplier),n=valuation(noQuote.sizeChecked?no:NaN,na,qty,multiplier);
+  const y=valuation(yes,ya,qty,multiplier),n=valuation(no,na,qty,multiplier);
   allCandidates.push({rule,p,m,yes,no,ya,na,y,n});
   const actionable=Math.max(...[y.roi,n.roi].filter(Number.isFinite),-Infinity);
   if(positiveOnly&&(!p||actionable<=0))continue;
@@ -231,7 +231,7 @@ function render(){
   for(const side of ['yes','no']){
    const quote=liveQuote(r.m,side,qty),evaluation=side==='yes'?r.y:r.n,prob=side==='yes'?r.yes:r.no;
    const c=document.createElement('tr'),bet=r.rule?betLabel(r.rule,side):'Settlement unverified';
-   const values=[r.rule?.name||r.m.title||'Unknown player',bet,r.p?r.p.mu.toFixed(2):'—',quoteDisplay(quote.ask),americanOdds(prob),percent(evaluation.roi),quote.depth===null?'—':String(quote.depth),quote.sizeChecked?'Top-of-book size checked':quote.source==='orderbook'?'Thin book — indicative':'Market only — indicative'];
+   const values=[r.rule?.name||r.m.title||'Unknown player',bet,r.p?r.p.mu.toFixed(2):'—',quoteDisplay(quote.ask),americanOdds(prob),percent(evaluation.roi),quote.depth===null?'—':String(quote.depth),quote.sizeChecked?'Book depth covers order':quote.source==='orderbook'?'Thin book — limited size':'Market summary — unverified'];
    values.forEach((value,i)=>{const td=document.createElement('td');td.textContent=value;if(i===1)td.className='bet-side';if(i===5&&Number.isFinite(evaluation.roi))td.className=evaluation.roi>0?'good':'bad';if(i===3)td.title='Price before fees, $'+(Number.isFinite(quote.ask)?quote.ask.toFixed(2):'—')+' per contract';c.appendChild(td);});compact.appendChild(c);
   }
  }
@@ -260,7 +260,7 @@ $('boardload').addEventListener('click',loadBoard);$('parse').addEventListener('
 // New read-only controls are appended without changing legacy sportsbook DOM.
 document.querySelectorAll('.panel')[2].querySelector('.toolbar').insertAdjacentHTML('beforeend','<label>Sort contracts<select id="sort"><option value="roi">Highest fee-adjusted ROI</option><option value="player">Player</option><option value="line">Threshold</option><option value="volume">Volume</option></select></label><label><input id="positive" type="checkbox"> Positive ROI only</label>');
 const bestPanel=document.createElement('section');bestPanel.className='panel';bestPanel.id='bestKalshiPanel';
-bestPanel.innerHTML='<h2>3 · Best Kalshi Bets <span class="good">Positive model edges</span></h2><div class="toolbar"><label>Minimum fee-adjusted ROI %<input id="bestmin" type="number" min="0" step="1" value="0"></label><label>Bet side<select id="bestside"><option value="all">Over and Under</option><option value="over">Over only</option><option value="under">Under only</option></select></label><label>Sort by<select id="bestsort"><option value="roi">Highest ROI</option><option value="player">Player A–Z</option><option value="odds">Highest payout</option><option value="fresh">Newest market update</option></select></label><label><input id="bestfresh" type="checkbox"> Market update within 2 min</label><label><input id="bestdepth" type="checkbox"> Reported ask depth covers order</label></div><p class="muted">Settlement-verified, round-matched positive edges only. Prices are indicative, not guaranteed fills; a recently updated market is not necessarily a recently updated quote.</p><p id="beststatus" class="muted"></p><div class="scroll"><table><thead><tr><th>Bet / Player</th><th>Round</th><th>Kalshi before fees</th><th>Fair American odds</th><th>Fair probability</th><th>Fee-adjusted ROI</th><th>Ask depth</th><th>Market updated</th><th>Quote caution</th></tr></thead><tbody id="bestrows"></tbody></table></div>';
+bestPanel.innerHTML='<h2>3 · Best Kalshi Bets <span class="good">Positive model edges</span></h2><div class="toolbar"><label>Minimum fee-adjusted ROI %<input id="bestmin" type="number" min="0" step="1" value="0"></label><label>Bet side<select id="bestside"><option value="all">Over and Under</option><option value="over">Over only</option><option value="under">Under only</option></select></label><label>Sort by<select id="bestsort"><option value="roi">Highest ROI</option><option value="player">Player A–Z</option><option value="odds">Highest payout</option><option value="fresh">Newest market update</option></select></label><label><input id="bestfresh" type="checkbox"> Market update within 2 min</label><label><input id="bestdepth" type="checkbox"> Reported ask depth covers order</label></div><p class="muted">Settlement-verified, round-matched positive edges only. ROI is theoretical at the displayed ask, including when depth is thin. Check order size and quote caution before betting; fills are not guaranteed.</p><p id="beststatus" class="muted"></p><div class="scroll"><table><thead><tr><th>Bet / Player</th><th>Round</th><th>Kalshi before fees</th><th>Fair American odds</th><th>Fair probability</th><th>Fee-adjusted ROI</th><th>Ask depth</th><th>Market updated</th><th>Quote caution</th></tr></thead><tbody id="bestrows"></tbody></table></div>';
 bestPanel.querySelector('#bestmin').value='3'; // Adjustable 3% default.
 const pricePanel=document.querySelectorAll('main > section.panel')[2];pricePanel.parentNode.insertBefore(bestPanel,pricePanel);
 const compactWrap=document.createElement('div');compactWrap.className='scroll';compactWrap.innerHTML='<table class="compact-kalshi"><thead><tr><th>Player</th><th>Over / Under</th><th>Projection</th><th>Kalshi American odds (before fees)</th><th>Fair American odds</th><th>Fee-adjusted ROI</th><th>Ask depth</th><th>Quote status</th></tr></thead><tbody id="compactrows"></tbody></table>';pricePanel.insertBefore(compactWrap,pricePanel.querySelector('.scroll'));

@@ -11,6 +11,14 @@ function erf(x){const sign=x<0?-1:1;x=Math.abs(x);const t=1/(1+.3275911*x);retur
 const cdf = z => .5*(1+erf(z/Math.SQRT2));
 const dollars = n => Number.isFinite(n)?'$'+n.toFixed(2):'—';
 const percent = n => Number.isFinite(n)?(n*100).toFixed(1)+'%':'—';
+function americanOdds(probability){
+ if(!Number.isFinite(probability)||probability<=0||probability>=1)return '—';
+ if(probability===.5)return '+100'; // Even money is +100, never -100.
+ const odds=probability<.5?100*(1-probability)/probability:-100*probability/(1-probability);
+ const rounded=Math.round(Math.abs(odds));
+ return (odds>0?'+':'-')+rounded;
+}
+const quoteDisplay = n => $('oddsformat').value==='american'?americanOdds(n):dollars(n);
 const price = (m,side) => {const v=m[side+'_ask_dollars'];const n=v!==undefined&&v!==null&&v!==''?Number(v):Number(m[side+'_ask'])/100;return Number.isFinite(n)&&n>0&&n<1?n:NaN;};
 function fee(pricePerContract, qty, multiplier){
  if(!Number.isFinite(pricePerContract)||!Number.isInteger(qty)||qty<1||qty>10000||!Number.isFinite(multiplier)||multiplier<0||multiplier>20)return NaN;
@@ -92,6 +100,9 @@ function accept(data){
 function syncRoundToEvent(){const event=$('event').value,match=event.match(/R([1-4])$/);if(match)$('round').value=match[1];}
 function render(){
  const selected=$('event').value,round=$('round').value,query=normalize($('search').value),min=Number($('minroi').value),qty=Number($('qty').value),multiplier=Number($('multiplier').value);
+ const asAmerican=$('oddsformat').value==='american';
+ $('yesaskheader').textContent=asAmerican?'YES ask (American, before fees)':'YES ask ($, before fees)';
+ $('noaskheader').textContent=asAmerican?'NO ask (American, before fees)':'NO ask ($, before fees)';
  const rows=[],stats={unrecognized:0,wrongRound:0,unmatched:0,unpriced:0,matched:0};
  for(const m of markets){if(m.event_ticker!==selected)continue;
   const rule=parseRule(m);if(!rule)stats.unrecognized++;
@@ -107,8 +118,8 @@ function render(){
  const best=r=>Math.max(...[r.y.roi,r.n.roi].filter(Number.isFinite),-Infinity);
  rows.sort((a,b)=>best(b)-best(a));
  const body=$('rows');body.replaceChildren();
- for(const r of rows){const tr=document.createElement('tr');const cells=[(r.rule?.name||r.m.title||'Unverified contract')+' · '+r.m.ticker,r.rule?.round||'—',r.rule?r.rule.direction+' '+r.rule.line.toFixed(1):'Unverified',r.p?r.p.mu.toFixed(2):'—',r.p?r.p.sd.toFixed(2):'—',percent(r.yes),dollars(r.ya),dollars(r.y.fee),percent(r.y.roi),percent(r.no),dollars(r.na),dollars(r.n.fee),percent(r.n.roi),r.m.volume_fp||'—'];
-  cells.forEach((value,i)=>{const td=document.createElement('td');td.textContent=value;if(i===0)td.title=r.m.rules_primary+'\n'+(r.m.rules_secondary||'');if(i===8||i===12)td.className=Number.isFinite(i===8?r.y.roi:r.n.roi)?(i===8?r.y.roi:r.n.roi)>0?'good':'bad':'';tr.appendChild(td);});body.appendChild(tr);
+ for(const r of rows){const tr=document.createElement('tr');const cells=[(r.rule?.name||r.m.title||'Unverified contract')+' · '+r.m.ticker,r.rule?.round||'—',r.rule?r.rule.direction+' '+r.rule.line.toFixed(1):'Unverified',r.p?r.p.mu.toFixed(2):'—',r.p?r.p.sd.toFixed(2):'—',percent(r.yes),quoteDisplay(r.ya),dollars(r.y.fee),percent(r.y.roi),percent(r.no),quoteDisplay(r.na),dollars(r.n.fee),percent(r.n.roi),r.m.volume_fp||'—'];
+  cells.forEach((value,i)=>{const td=document.createElement('td');td.textContent=value;if(i===0)td.title=r.m.rules_primary+'\n'+(r.m.rules_secondary||'');if(i===6||i===10)td.title='Underlying Kalshi ask: '+dollars(i===6?r.ya:r.na)+' per $1 contract, before fees';if(i===8||i===12)td.className=Number.isFinite(i===8?r.y.roi:r.n.roi)?(i===8?r.y.roi:r.n.roi)>0?'good':'bad':'';tr.appendChild(td);});body.appendChild(tr);
  }
  if(!rows.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=14;td.textContent=markets.length?'No contracts match the selected filters. Try the other round/event or clear search.':'No open contracts returned yet. Refresh markets or inspect the API error above.';tr.appendChild(td);body.appendChild(tr);}
  $('matchstatus').textContent=`${rows.length} visible contracts · ${stats.matched} model matches · ${stats.unmatched} without projections/rule verification · ${stats.unrecognized} settlement rules unverified · ${stats.unpriced} missing both asks. Unverified contracts show quotes only, never model ROI.`;
@@ -133,7 +144,7 @@ $('boardload').addEventListener('click',loadBoard);$('parse').addEventListener('
 $('projectionfile').addEventListener('change',importProjectionFile);
 $('parsejson').addEventListener('click',()=>{try{accept(JSON.parse($('json').value));}catch(e){lastError=e.message;render();}});
 $('load').addEventListener('click',fetchMarkets);
-for(const id of ['round','search','qty','multiplier','minroi'])$(id).addEventListener('input',render);
+for(const id of ['round','search','qty','multiplier','minroi','oddsformat'])$(id).addEventListener('input',render);
 $('event').addEventListener('change',()=>{syncRoundToEvent();render();});
 setInterval(()=>{if($('autorefresh').checked&&!document.hidden)fetchMarkets();},60000);
 loadBoard();fetchMarkets();

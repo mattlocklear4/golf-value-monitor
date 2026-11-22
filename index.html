@@ -659,17 +659,33 @@ $('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);i
   setup:[findHeading('Round & scoring model'),findHeading('Tournament scoring standard deviations'),sections.find(el=>el.id==='qualityPanel')],
   imports:[findHeading('Round Score sportsbook odds import')],
   cloud:[sections.find(el=>el.id==='cloudPanel'),sections.find(el=>el.id==='oneDrivePanel')],
-  bestbets:[],bob:[],bogey:[],pars:[],history:[],historytables:[],weather:[]
+  bestbets:[],bob:[],bogey:[],pars:[],history:[],historytables:[],weather:[],kalshi:[]
  };
  const nav=document.createElement('nav');nav.className='gvm-tabs';nav.setAttribute('aria-label','Dashboard sections');
  const panels={};const buttons={};
- const labels={bestbets:'Best Bets',board:'Round Score Board',bob:'BoB Board',bogey:'Bogey+ Board',pars:'Pars Board',history:'Tournament History',historytables:'Tournament History Tables',weather:'Historical Weather',setup:'Setup & Imports',imports:'Sportsbook Odds Import',cloud:'Cloud & OneDrive'};
+ const labels={bestbets:'Best Bets',board:'Round Score Board',bob:'BoB Board',bogey:'Bogey+ Board',pars:'Pars Board',history:'Tournament History',historytables:'Tournament History Tables',weather:'Historical Weather',kalshi:'Kalshi Golfer Scores',setup:'Setup & Imports',imports:'Sportsbook Odds Import',cloud:'Cloud & OneDrive'};
  for(const key of Object.keys(labels)){
   const btn=document.createElement('button');btn.type='button';btn.className='gvm-tab';btn.textContent=labels[key];btn.id='gvm-tab-'+key;btn.setAttribute('role','tab');btn.setAttribute('aria-controls','gvm-panel-'+key);
   const panel=document.createElement('section');panel.id='gvm-panel-'+key;panel.className='gvm-tab-panel';panel.setAttribute('role','tabpanel');panel.setAttribute('aria-labelledby',btn.id);
   buttons[key]=btn;panels[key]=panel;nav.appendChild(btn);
   for(const el of groups[key].filter(Boolean))panel.appendChild(el);
  }
+ const kalshiPanel=document.createElement('div');kalshiPanel.className='panel';kalshiPanel.innerHTML='<iframe id="gvmKalshiFrame" title="Kalshi Golfer Scores" src="kalshi.html" style="width:100%;min-height:1050px;border:0;border-radius:10px" loading="lazy"></iframe>';
+ panels.kalshi.appendChild(kalshiPanel);
+ function sendKalshiProjections(){
+  const frame=document.getElementById('gvmKalshiFrame');if(!frame?.contentWindow)return;
+  const rounds={};
+  for(const [round,d] of Object.entries(state)){
+   if(!['1','2','3','4'].includes(round)||!Array.isArray(d.players))continue;
+   const avg=average(d.players),par=Number(d.par),field=Number(d.field);rounds[round]={};
+   for(const p of d.players){const dg=Number(p.dg),mean=par+field-(dg-avg)/4.1,sd=getSd(p).sd;
+    if(Number.isFinite(mean)&&Number.isFinite(sd)&&sd>0)rounds[round][clean(p.name)]={name:p.name,mean,sd};
+   }
+  }
+  frame.contentWindow.postMessage({type:'golf-kalshi-projections',rounds},location.origin);
+ }
+ window.addEventListener('message',event=>{if(event.origin===location.origin&&event.source===document.getElementById('gvmKalshiFrame')?.contentWindow&&event.data?.type==='golf-kalshi-request')sendKalshiProjections()});
+ document.getElementById('gvmKalshiFrame').addEventListener('load',sendKalshiProjections);
  const weatherPanel=document.createElement('div');weatherPanel.className='panel';
  weatherPanel.innerHTML='<div class="panelhead"><h2>Historical Weather</h2></div><p class="note">Historical wind, gusts, direction and rainfall. API requests run through a local or Netlify server; keys are never included in the browser.</p><iframe title="Historical Weather Dashboard" src="weather.html" style="width:100%;min-height:1250px;border:0;border-radius:12px;background:#08111e" loading="lazy"></iframe>';
  panels.weather.appendChild(weatherPanel);

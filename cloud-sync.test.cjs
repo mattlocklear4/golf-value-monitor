@@ -85,7 +85,9 @@ test('two devices racing version-checked writes retry without lost update', () =
   assert.equal(server.rounds['4'].books.FanDuel.B,-115);
 });
 
-test('preview environment is explicitly write-protected', () => {
-  assert.match(html,/CLOUD_READ_ONLY_PREVIEW=location\.hostname\.endsWith\('\.chatgpt\.site'\)/);
-  assert.match(html,/if\(CLOUD_READ_ONLY_PREVIEW\)\{cloudSyncStatus/);
+test('preview is isolated from production board and preferences tables', () => {
+  assert.match(html,/const CLOUD_TABLE=CLOUD_READ_ONLY_PREVIEW\?CLOUD_TEST_TABLE:'user_board_state'/);
+  assert.match(html,/if\(CLOUD_READ_ONLY_PREVIEW\)return \{data,preferences:\{\}\}/);
+  assert.match(html,/CLOUD_READ_ONLY_PREVIEW&&url!==CLOUD_TEST_PROJECT/);
+  assert.match(html,/cloudClient\.from\(CLOUD_TABLE\)\.update/);
 });

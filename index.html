@@ -175,6 +175,14 @@ for(const k of ['1','2','3','4']){let d=state[k];if(!d)continue;if(!d.books||typ
 let current='1';let sort='roi';
 function roundData(){return state[current]||(state[current]={players:[],books:{},bookUpdated:{},par:71,field:-1.30,divisor:4.1});}
 let cloudClient=null,cloudUser=null,cloudEnabled=false,cloudBusy=false,cloudTimer=null,cloudPending=false;
+let cloudPollTimer=null,cloudLastSaved='',cloudLastReceived='',cloudCheckRunning=false;
+let cloudRetryMs=0;
+// The separate Sites preview may read a configured account, but must never write
+// production Supabase records. GitHub/Netlify builds retain normal sync behavior.
+const CLOUD_READ_ONLY_PREVIEW=location.hostname.endsWith('.chatgpt.site');
+const CLOUD_TEST_TABLE='sync_test_board_state';
+const CLOUD_TABLE=CLOUD_READ_ONLY_PREVIEW?CLOUD_TEST_TABLE:'user_board_state';
+const CLOUD_TEST_PROJECT='https://gyyasyrcrbhimeyaddga.supabase.co';
 function persist(){localStorage.setItem(KEY,JSON.stringify(state));cloudSchedule();}
 function persistSd(){localStorage.setItem(SD_KEY,JSON.stringify(sdState));cloudSchedule();}
 function getSd(p){let k=clean(p.name),alias=aliases[k]||k,rec=sdState.lookup[alias]||sdState.lookup[k];let val=Number(rec);return Number.isFinite(val)&&val>0?{sd:val,source:"Player-specific"}:{sd:Number(sdState.defaultSd)||3,source:"Default"};}
@@ -523,8 +531,57 @@ const CLOUD_CONFIG_KEY='gppb-v7-cloud-config';
 const CLOUD_BASE_KEY='gppb-v73-synced-base';
 function cloudPayload(){const s=cloudSnapshot();return JSON.stringify({rounds:s.rounds,stdev:s.stdev,aliases:s.aliases});}
 function cloudBaseline(){try{return JSON.parse(localStorage.getItem(CLOUD_BASE_KEY)||'null')}catch{return null}}
-function cloudMarkSynced(updatedAt){localStorage.setItem(CLOUD_BASE_KEY,JSON.stringify({payload:cloudPayload(),updatedAt}));}
+function cloudMarkSynced(updatedAt,snapshot){localStorage.setItem(CLOUD_BASE_KEY,JSON.stringify({payload:JSON.stringify(snapshot||JSON.parse(cloudPayload())),updatedAt}));}
 function cloudPauseUI(){ $('cloudPause').textContent=cloudEnabled?'Pause automatic sync':'Resume automatic sync'; }
+const cloudSame=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+const cloudPlain=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
+// Three-way merge of independent rounds, sportsbooks and players. Arrays (such as
+// DataGolf player lists) are atomic; concurrent edits to the same value conflict.
+function cloudMerge(base,local,remote,path=''){
+ if(cloudSame(local,remote))return {value:local,conflicts:[]};
+ if(cloudSame(local,base))return {value:remote,conflicts:[]};
+ if(cloudSame(remote,base))return {value:local,conflicts:[]};
+ if(cloudPlain(local)&&cloudPlain(remote)&&(cloudPlain(base)||base===undefined)){
+  const out={},conflicts=[],keys=new Set([...Object.keys(base||{}),...Object.keys(local),...Object.keys(remote)]);
+  for(const key of keys){const result=cloudMerge(base?.[key],local[key],remote[key],path?path+'.'+key:key);if(result.value!==undefined)out[key]=result.value;conflicts.push(...result.conflicts);}
+  return {value:out,conflicts};
+ }
+ return {value:local,conflicts:[path||'root']};
+}
+function cloudRemoteSnapshot(found){const data=found.data?.board_data||{};return {rounds:data.rounds||{},stdev:data.stdev||{},aliases:data.aliases||found.preferences.aliases||{}};}
+function cloudApplySnapshot(snapshot){
+ state=snapshot.rounds;sdState=snapshot.stdev;
+ localStorage.setItem(KEY,JSON.stringify(state));localStorage.setItem(SD_KEY,JSON.stringify(sdState));localStorage.setItem(ALIAS_KEY,JSON.stringify(snapshot.aliases));
+ for(const k of Object.keys(aliases))delete aliases[k];Object.assign(aliases,snapshot.aliases);
+ const selected=current;updateControls();current=selected;$('round').value=selected;updateSdStatus();updateQuality();render();
+}
+function cloudStamp(){return `Cloud saved: ${cloudLastSaved?new Date(cloudLastSaved).toLocaleString():'not yet'} · Received: ${cloudLastReceived?new Date(cloudLastReceived).toLocaleString():'not yet'}`;}
+function cloudSyncStatus(message){cloudMsg(message+' · '+cloudStamp());}
+function cloudStartPolling(){
+ clearInterval(cloudPollTimer);cloudPollTimer=setInterval(()=>{if(!document.hidden)cloudCheckUpdates();},15000);
+}
+async function cloudCheckUpdates(){
+ if(!cloudEnabled||!cloudReady()||cloudBusy||cloudCheckRunning)return;
+ cloudCheckRunning=true;
+ try{const found=await cloudRead();await cloudReconcile(found,false);}
+ catch(e){cloudSyncStatus('Connection unavailable; local edits retained. Will retry: '+e.message);}
+ finally{cloudCheckRunning=false;}
+}
+async function cloudReconcile(found,initial){
+ if(!found.data?.board_data?.rounds)return;
+ const base=cloudBaseline();if(!base)return;
+ const remote=cloudRemoteSnapshot(found),local=JSON.parse(cloudPayload()),original=JSON.parse(base.payload);
+ const changed=found.data.updated_at!==base.updatedAt;
+ if(!changed){if(!cloudSame(local,original))cloudSchedule();return;}
+ const merged=cloudMerge(original,local,remote);
+ if(merged.conflicts.length){cloudEnabled=false;cloudPauseUI();cloudSyncStatus('Sync conflict in '+merged.conflicts.slice(0,4).join(', ')+'. Automatic sync paused; both copies preserved.');return;}
+ // An edit can arrive while the cloud request is in flight. Preserve it too.
+ const latest=JSON.parse(cloudPayload()),post=cloudMerge(local,latest,merged.value);
+ if(post.conflicts.length){cloudEnabled=false;cloudPauseUI();cloudSyncStatus('Sync conflict during refresh in '+post.conflicts.slice(0,4).join(', ')+'. Local and cloud copies preserved.');return;}
+ cloudApplySnapshot(post.value);cloudMarkSynced(found.data.updated_at,remote);cloudLastReceived=found.data.updated_at;
+ cloudSyncStatus('Newer cloud changes merged automatically. Sync active.');
+ if(!cloudSame(post.value,remote))cloudSchedule();
+}
 async function cloudRestore(){
  if(!cloudReady())return;
  const base=cloudBaseline();
@@ -533,21 +590,10 @@ async function cloudRestore(){
  try{
   const found=await cloudRead(),remote=found.data;
   if(!remote?.board_data?.rounds){cloudMsg('Cloud record missing. Automatic sync paused.');return;}
-  const localUnchanged=cloudPayload()===base.payload;
-  const remoteChanged=new Date(remote.updated_at).getTime()>new Date(base.updatedAt).getTime()+1000;
-  if(remoteChanged){
-   if(!localUnchanged){cloudMsg('Sync conflict: both browser and cloud changed. Automatic sync paused; review before choosing Upload or Load.');return;}
-   const r=remote.board_data;
-   state=r.rounds;sdState=r.stdev;
-   const a=found.preferences.aliases||{};
-   localStorage.setItem(KEY,JSON.stringify(state));localStorage.setItem(SD_KEY,JSON.stringify(sdState));localStorage.setItem(ALIAS_KEY,JSON.stringify(a));
-   for(const k of Object.keys(aliases))delete aliases[k];Object.assign(aliases,a);
-   current='1';$('round').value='1';updateControls();updateSdStatus();
-   cloudMarkSynced(remote.updated_at);
-  }
-  cloudEnabled=true;cloudPauseUI();cloudMsg(remoteChanged?'Newer cloud data loaded automatically. Sync active.':'Cloud sync restored. Automatic sync active.');
-  if(!localUnchanged&&!remoteChanged)cloudSchedule();
- }catch(e){cloudMsg('Cloud sync check failed: '+e.message+'. Local data preserved.');}
+  cloudEnabled=true;cloudLastReceived=remote.updated_at;cloudPauseUI();
+  await cloudReconcile(found,true);
+  if(cloudEnabled){cloudStartPolling();cloudSyncStatus('Cloud sync active.');}
+ }catch(e){cloudSyncStatus('Cloud sync check failed: '+e.message+'. Local data preserved.');}
  finally{cloudBusy=false;cloudPauseUI();}
 }
 function cloudButtons(){const signed=cloudReady();$('cloudUpload').disabled=!signed;$('cloudDownload').disabled=!signed;$('cloudLogout').disabled=!signed;}
@@ -568,11 +614,12 @@ function cloudReady(){return !!(cloudClient&&cloudUser)}
 function cloudSchedule(){
  if(!cloudEnabled||!cloudReady())return;
  cloudPending=true;clearTimeout(cloudTimer);
- cloudTimer=setTimeout(async()=>{if(!cloudPending)return;if(cloudBusy){cloudSchedule();return;}cloudPending=false;await cloudPush(false);},1600);
+ cloudTimer=setTimeout(async()=>{if(!cloudPending)return;if(cloudBusy){cloudSchedule();return;}cloudPending=false;await cloudPush(false);},Math.max(1600,cloudRetryMs));
 }
 async function cloudConfigure(){
  const url=$('cloudUrl').value.trim().replace(/\/$/,''),key=$('cloudKey').value.trim();
  if(!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url)||!key.startsWith('sb_publishable_')){cloudMsg('Enter a valid Supabase project URL and publishable key.');return;}
+ if(CLOUD_READ_ONLY_PREVIEW&&url!==CLOUD_TEST_PROJECT){cloudMsg('Isolated preview only permits the Golf test project.');return;}
  if(!window.supabase?.createClient){cloudMsg('Supabase library did not load. Check internet access and refresh.');return;}
  cloudEnabled=false;cloudUser=null;clearTimeout(cloudTimer);cloudPauseUI();
  localStorage.setItem(CLOUD_CONFIG_KEY,JSON.stringify({url,key,email:$('cloudEmail').value.trim()}));
@@ -597,26 +644,51 @@ async function cloudLogin(){
  cloudMsg(error?'Sign-in failed: '+error.message:'Sign-in email sent to '+email+'. Open the link in this browser, then return to this section.');
 }
 async function cloudRead(){
- const {data,error}=await cloudClient.from('user_board_state').select('board_data,updated_at').eq('user_id',cloudUser.id).maybeSingle();
+ const {data,error}=await cloudClient.from(CLOUD_TABLE).select('board_data,updated_at').eq('user_id',cloudUser.id).maybeSingle();
  if(error)throw new Error(error.message);
+ if(CLOUD_READ_ONLY_PREVIEW)return {data,preferences:{}};
  const {data:pref,error:prefError}=await cloudClient.from('user_preferences').select('preferences').eq('user_id',cloudUser.id).maybeSingle();
  if(prefError)throw new Error(prefError.message);
  return {data,preferences:pref?.preferences||{}};
 }
 async function cloudPush(manual){
  if(!cloudReady()){cloudMsg('Sign in first.');return;}
+ if(CLOUD_READ_ONLY_PREVIEW&&CLOUD_TABLE!==CLOUD_TEST_TABLE){cloudSyncStatus('Preview write blocked.');return;}
  if(cloudBusy){cloudPending=true;return;}
  cloudBusy=true;
  try{
-  if(manual){const existing=await cloudRead();if(existing.data?.board_data?.rounds&&!confirm('Cloud data already exists. Replace it with the data currently in THIS browser?')){cloudMsg('Upload cancelled. Cloud data unchanged.');return;}}
-  if(!manual){const base=cloudBaseline(),existing=await cloudRead();if(!base||!existing.data||new Date(existing.data.updated_at).getTime()>new Date(base.updatedAt).getTime()+1000){cloudEnabled=false;cloudPauseUI();cloudMsg('Cloud changed on another device. Auto-save paused to prevent overwriting; reload page to reconcile.');return;}}
-  const snap=cloudSnapshot();
-  const {error}=await cloudClient.from('user_board_state').upsert({user_id:cloudUser.id,board_data:{rounds:snap.rounds,stdev:snap.stdev,schema:7},updated_at:new Date().toISOString()},{onConflict:'user_id'});
-  if(error)throw new Error(error.message);
-  const {error:prefError}=await cloudClient.from('user_preferences').upsert({user_id:cloudUser.id,preferences:{aliases:snap.aliases},updated_at:new Date().toISOString()},{onConflict:'user_id'});
-  if(prefError)throw new Error(prefError.message);
-  const {data:confirmed,error:confirmError}=await cloudClient.from('user_board_state').select('updated_at').eq('user_id',cloudUser.id).single();if(confirmError)throw new Error(confirmError.message);cloudMarkSynced(confirmed.updated_at);cloudEnabled=true;cloudPauseUI();cloudMsg('Cloud saved at '+new Date().toLocaleTimeString()+'. Automatic sync active.');
- }catch(e){cloudEnabled=false;cloudMsg('Cloud save failed: '+e.message+'. Local data remains intact; auto sync paused.');}
+  const base=cloudBaseline();if(!base&&!manual){cloudEnabled=false;cloudPauseUI();cloudMsg('Initialize cloud sync with Upload or Load first.');return;}
+  for(let attempt=0;attempt<4;attempt++){
+   const found=await cloudRead(),remoteRow=found.data;
+   if(!remoteRow?.board_data?.rounds){
+    if(!manual)throw Error('Cloud record missing. No automatic overwrite attempted.');
+    const snap=JSON.parse(cloudPayload()),stamp=new Date().toISOString();
+    const {error}=await cloudClient.from(CLOUD_TABLE).insert({user_id:cloudUser.id,board_data:{...snap,schema:7},updated_at:stamp});
+    if(error)throw Error(error.message);
+    cloudMarkSynced(stamp,snap);cloudLastSaved=stamp;cloudLastReceived=stamp;cloudEnabled=true;cloudStartPolling();cloudSyncStatus('Cloud initialized safely.');return;
+   }
+   if(manual&&!base){if(!confirm('Cloud data already exists. Replacing it can discard another device’s changes. Proceed?'))return;throw Error('Use Load before uploading to establish a conflict-safe baseline.');}
+   const remote=cloudRemoteSnapshot(found),local=JSON.parse(cloudPayload()),original=JSON.parse(base.payload);
+   const merged=cloudMerge(original,local,remote);
+   if(merged.conflicts.length){cloudEnabled=false;cloudPauseUI();cloudSyncStatus('Unresolved concurrent edits: '+merged.conflicts.slice(0,4).join(', ')+'. Local and cloud versions preserved.');return;}
+   if(cloudSame(merged.value,remote)){
+    cloudApplySnapshot(merged.value);cloudMarkSynced(remoteRow.updated_at,remote);cloudLastReceived=remoteRow.updated_at;cloudSyncStatus('Cloud already up to date.');return;
+   }
+   // Ensure every successful CAS changes the version even if a device clock lags.
+   const stamp=new Date(Math.max(Date.now(),Date.parse(remoteRow.updated_at)+1)+attempt).toISOString();
+   // Atomic compare-and-swap: concurrent writers cannot both overwrite the same version.
+   const {data:updated,error}=await cloudClient.from(CLOUD_TABLE).update({board_data:{...merged.value,schema:7},updated_at:stamp}).eq('user_id',cloudUser.id).eq('updated_at',remoteRow.updated_at).select('updated_at');
+   if(error)throw Error(error.message);
+   if(!updated?.length)continue; // Another device won the race; refetch and merge.
+   const now=JSON.parse(cloudPayload()),post=cloudMerge(local,now,merged.value);
+   if(post.conflicts.length)throw Error('Local data changed during save; review required.');
+   cloudApplySnapshot(post.value);cloudMarkSynced(updated[0].updated_at,merged.value);
+   cloudLastSaved=updated[0].updated_at;cloudLastReceived=updated[0].updated_at;cloudEnabled=true;cloudRetryMs=0;cloudStartPolling();cloudSyncStatus('Cloud saved. Automatic sync active.');
+   if(!cloudSame(post.value,merged.value))cloudPending=true;
+   return;
+  }
+  cloudSyncStatus('Concurrent updates still arriving. Retrying without overwriting.');cloudPending=true;
+ }catch(e){cloudRetryMs=Math.min(cloudRetryMs?cloudRetryMs*2:5000,60000);cloudSyncStatus('Cloud save deferred: '+e.message+'. Local data retained; retry on reconnect.');cloudPending=true;}
  finally{cloudBusy=false;if(cloudPending&&cloudEnabled)cloudSchedule();}
 }
 async function cloudPull(){
@@ -628,12 +700,12 @@ async function cloudPull(){
   if(!confirm('Replace this browser’s current projections, sportsbook odds, and StDevs with the saved cloud version? This cannot be undone from the dashboard.')){cloudMsg('Cloud download cancelled.');return;}
   if(!remote.rounds||typeof remote.rounds!=='object'||!remote.stdev||typeof remote.stdev!=='object')throw new Error('Cloud record is incomplete.');
   state=remote.rounds;sdState=remote.stdev;
-  const remoteAliases=found.preferences.aliases||{};
+  const remoteAliases=remote.aliases||found.preferences.aliases||{};
   localStorage.setItem(KEY,JSON.stringify(state));localStorage.setItem(SD_KEY,JSON.stringify(sdState));
   localStorage.setItem(ALIAS_KEY,JSON.stringify(remoteAliases));
   for(const k of Object.keys(aliases))delete aliases[k];Object.assign(aliases,remoteAliases);
   current='1';$('round').value='1';updateControls();updateSdStatus();updateQuality();
-  cloudMarkSynced(found.data.updated_at);cloudEnabled=true;cloudPauseUI();cloudMsg('Cloud data loaded at '+new Date().toLocaleTimeString()+'. Automatic sync active.');
+  cloudMarkSynced(found.data.updated_at,cloudRemoteSnapshot(found));cloudLastReceived=found.data.updated_at;cloudEnabled=true;cloudPauseUI();cloudStartPolling();cloudSyncStatus('Cloud data loaded. Automatic sync active.');
  }catch(e){cloudMsg('Cloud load failed: '+e.message+'. Local data was not intentionally replaced.');}
  finally{cloudBusy=false;}
 }
@@ -641,9 +713,10 @@ $('cloudConfigure').onclick=cloudConfigure;
 $('cloudLogin').onclick=cloudLogin;
 $('cloudUpload').onclick=()=>cloudPush(true);
 $('cloudDownload').onclick=cloudPull;
-$('cloudPause').onclick=()=>{if(cloudEnabled){cloudEnabled=false;clearTimeout(cloudTimer);cloudPauseUI();cloudMsg('Automatic sync paused. Browser data remains available.');}else{cloudRestore();}};
+$('cloudPause').onclick=()=>{if(cloudEnabled){cloudEnabled=false;clearTimeout(cloudTimer);clearInterval(cloudPollTimer);cloudPauseUI();cloudMsg('Automatic sync paused. Browser data remains available.');}else{cloudRestore();}};
 cloudButtons();cloudPauseUI();
-$('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);if(cloudClient)await cloudClient.auth.signOut();cloudUser=null;cloudButtons();cloudMsg('Signed out. Browser data remains available.');};
+$('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);clearInterval(cloudPollTimer);if(cloudClient)await cloudClient.auth.signOut();cloudUser=null;cloudButtons();cloudMsg('Signed out. Browser data remains available.');};
+(function(){const onWake=()=>{if(cloudEnabled&&cloudReady())cloudCheckUpdates();};window.addEventListener('online',onWake);window.addEventListener('focus',onWake);document.addEventListener('visibilitychange',()=>{if(!document.hidden)onWake();});})();
 (function(){const c=cloudConfig();if(c.url&&c.key){$('cloudUrl').value=c.url;$('cloudKey').value=c.key;$('cloudEmail').value=c.email||'';cloudConfigure();}})();
 
 </script><script>

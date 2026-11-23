@@ -85,6 +85,36 @@ test('two devices racing version-checked writes retry without lost update', () =
   assert.equal(server.rounds['4'].books.FanDuel.B,-115);
 });
 
+test('production compare-and-swap timestamp advances even with a slow device clock', () => {
+  assert.match(html,/Math\.max\(Date\.now\(\),Date\.parse\(remoteRow\.updated_at\)\+1\)/);
+  const existing='2026-11-23T12:00:00.000Z';
+  const laggingClock=Date.parse(existing)-10000;
+  const next=new Date(Math.max(laggingClock,Date.parse(existing)+1)).toISOString();
+  assert.ok(next>existing);
+});
+
+test('cloud refresh retains a local edit made after the request started', async () => {
+  const source=html.slice(html.indexOf('async function cloudReconcile('),html.indexOf('async function cloudRestore('));
+  const initial=board(),remote=structuredClone(initial),editing=structuredClone(initial);
+  remote.rounds['3'].books.DraftKings.A=135;
+  editing.rounds['4'].books.FanDuel.B=-105;
+  let calls=0,applied=null,scheduled=false;
+  const ctx=vm.createContext({
+    cloudBaseline:()=>({payload:JSON.stringify(initial),updatedAt:'old'}),
+    cloudRemoteSnapshot:()=>remote,
+    cloudPayload:()=>JSON.stringify(calls++===0?initial:editing),
+    cloudApplySnapshot:v=>{applied=v},
+    cloudMarkSynced:()=>{},cloudSyncStatus:()=>{},
+    cloudSchedule:()=>{scheduled=true},
+    cloudPauseUI:()=>{},cloudEnabled:true,cloudLastReceived:null,
+  });
+  vm.runInContext(mergeCode+'\n'+source+'\nthis.reconcile=cloudReconcile',ctx);
+  await ctx.reconcile({data:{board_data:{rounds:remote.rounds},updated_at:'new'}},false);
+  assert.equal(applied.rounds['3'].books.DraftKings.A,135);
+  assert.equal(applied.rounds['4'].books.FanDuel.B,-105);
+  assert.equal(scheduled,true);
+});
+
 test('preview is isolated from production board and preferences tables', () => {
   assert.match(html,/const CLOUD_TABLE=CLOUD_READ_ONLY_PREVIEW\?CLOUD_TEST_TABLE:'user_board_state'/);
   assert.match(html,/if\(CLOUD_READ_ONLY_PREVIEW\)return \{data,preferences:\{\}\}/);

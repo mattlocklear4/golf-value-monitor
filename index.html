@@ -180,6 +180,9 @@ let cloudRetryMs=0;
 // The separate Sites preview may read a configured account, but must never write
 // production Supabase records. GitHub/Netlify builds retain normal sync behavior.
 const CLOUD_READ_ONLY_PREVIEW=location.hostname.endsWith('.chatgpt.site');
+const CLOUD_TEST_TABLE='sync_test_board_state';
+const CLOUD_TABLE=CLOUD_READ_ONLY_PREVIEW?CLOUD_TEST_TABLE:'user_board_state';
+const CLOUD_TEST_PROJECT='https://gyyasyrcrbhimeyaddga.supabase.co';
 function persist(){localStorage.setItem(KEY,JSON.stringify(state));cloudSchedule();}
 function persistSd(){localStorage.setItem(SD_KEY,JSON.stringify(sdState));cloudSchedule();}
 function getSd(p){let k=clean(p.name),alias=aliases[k]||k,rec=sdState.lookup[alias]||sdState.lookup[k];let val=Number(rec);return Number.isFinite(val)&&val>0?{sd:val,source:"Player-specific"}:{sd:Number(sdState.defaultSd)||3,source:"Default"};}
@@ -613,6 +616,7 @@ function cloudSchedule(){
 async function cloudConfigure(){
  const url=$('cloudUrl').value.trim().replace(/\/$/,''),key=$('cloudKey').value.trim();
  if(!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url)||!key.startsWith('sb_publishable_')){cloudMsg('Enter a valid Supabase project URL and publishable key.');return;}
+ if(CLOUD_READ_ONLY_PREVIEW&&url!==CLOUD_TEST_PROJECT){cloudMsg('Isolated preview only permits the Golf test project.');return;}
  if(!window.supabase?.createClient){cloudMsg('Supabase library did not load. Check internet access and refresh.');return;}
  cloudEnabled=false;cloudUser=null;clearTimeout(cloudTimer);cloudPauseUI();
  localStorage.setItem(CLOUD_CONFIG_KEY,JSON.stringify({url,key,email:$('cloudEmail').value.trim()}));
@@ -637,15 +641,16 @@ async function cloudLogin(){
  cloudMsg(error?'Sign-in failed: '+error.message:'Sign-in email sent to '+email+'. Open the link in this browser, then return to this section.');
 }
 async function cloudRead(){
- const {data,error}=await cloudClient.from('user_board_state').select('board_data,updated_at').eq('user_id',cloudUser.id).maybeSingle();
+ const {data,error}=await cloudClient.from(CLOUD_TABLE).select('board_data,updated_at').eq('user_id',cloudUser.id).maybeSingle();
  if(error)throw new Error(error.message);
+ if(CLOUD_READ_ONLY_PREVIEW)return {data,preferences:{}};
  const {data:pref,error:prefError}=await cloudClient.from('user_preferences').select('preferences').eq('user_id',cloudUser.id).maybeSingle();
  if(prefError)throw new Error(prefError.message);
  return {data,preferences:pref?.preferences||{}};
 }
 async function cloudPush(manual){
  if(!cloudReady()){cloudMsg('Sign in first.');return;}
- if(CLOUD_READ_ONLY_PREVIEW){cloudSyncStatus('Test preview is read-only: no changes can be written to production Supabase.');return;}
+ if(CLOUD_READ_ONLY_PREVIEW&&CLOUD_TABLE!==CLOUD_TEST_TABLE){cloudSyncStatus('Preview write blocked.');return;}
  if(cloudBusy){cloudPending=true;return;}
  cloudBusy=true;
  try{
@@ -655,7 +660,7 @@ async function cloudPush(manual){
    if(!remoteRow?.board_data?.rounds){
     if(!manual)throw Error('Cloud record missing. No automatic overwrite attempted.');
     const snap=JSON.parse(cloudPayload()),stamp=new Date().toISOString();
-    const {error}=await cloudClient.from('user_board_state').insert({user_id:cloudUser.id,board_data:{...snap,schema:7},updated_at:stamp});
+    const {error}=await cloudClient.from(CLOUD_TABLE).insert({user_id:cloudUser.id,board_data:{...snap,schema:7},updated_at:stamp});
     if(error)throw Error(error.message);
     cloudMarkSynced(stamp,snap);cloudLastSaved=stamp;cloudLastReceived=stamp;cloudEnabled=true;cloudStartPolling();cloudSyncStatus('Cloud initialized safely.');return;
    }
@@ -668,7 +673,7 @@ async function cloudPush(manual){
    }
    const stamp=new Date(Date.now()+attempt).toISOString();
    // Atomic compare-and-swap: concurrent writers cannot both overwrite the same version.
-   const {data:updated,error}=await cloudClient.from('user_board_state').update({board_data:{...merged.value,schema:7},updated_at:stamp}).eq('user_id',cloudUser.id).eq('updated_at',remoteRow.updated_at).select('updated_at');
+   const {data:updated,error}=await cloudClient.from(CLOUD_TABLE).update({board_data:{...merged.value,schema:7},updated_at:stamp}).eq('user_id',cloudUser.id).eq('updated_at',remoteRow.updated_at).select('updated_at');
    if(error)throw Error(error.message);
    if(!updated?.length)continue; // Another device won the race; refetch and merge.
    const now=JSON.parse(cloudPayload()),post=cloudMerge(local,now,merged.value);

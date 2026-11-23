@@ -575,9 +575,12 @@ async function cloudReconcile(found,initial){
  if(!changed){if(!cloudSame(local,original))cloudSchedule();return;}
  const merged=cloudMerge(original,local,remote);
  if(merged.conflicts.length){cloudEnabled=false;cloudPauseUI();cloudSyncStatus('Sync conflict in '+merged.conflicts.slice(0,4).join(', ')+'. Automatic sync paused; both copies preserved.');return;}
- cloudApplySnapshot(merged.value);cloudMarkSynced(found.data.updated_at,remote);cloudLastReceived=found.data.updated_at;
+ // An edit can arrive while the cloud request is in flight. Preserve it too.
+ const latest=JSON.parse(cloudPayload()),post=cloudMerge(local,latest,merged.value);
+ if(post.conflicts.length){cloudEnabled=false;cloudPauseUI();cloudSyncStatus('Sync conflict during refresh in '+post.conflicts.slice(0,4).join(', ')+'. Local and cloud copies preserved.');return;}
+ cloudApplySnapshot(post.value);cloudMarkSynced(found.data.updated_at,remote);cloudLastReceived=found.data.updated_at;
  cloudSyncStatus('Newer cloud changes merged automatically. Sync active.');
- if(!cloudSame(merged.value,remote))cloudSchedule();
+ if(!cloudSame(post.value,remote))cloudSchedule();
 }
 async function cloudRestore(){
  if(!cloudReady())return;
@@ -671,7 +674,8 @@ async function cloudPush(manual){
    if(cloudSame(merged.value,remote)){
     cloudApplySnapshot(merged.value);cloudMarkSynced(remoteRow.updated_at,remote);cloudLastReceived=remoteRow.updated_at;cloudSyncStatus('Cloud already up to date.');return;
    }
-   const stamp=new Date(Date.now()+attempt).toISOString();
+   // Ensure every successful CAS changes the version even if a device clock lags.
+   const stamp=new Date(Math.max(Date.now(),Date.parse(remoteRow.updated_at)+1)+attempt).toISOString();
    // Atomic compare-and-swap: concurrent writers cannot both overwrite the same version.
    const {data:updated,error}=await cloudClient.from(CLOUD_TABLE).update({board_data:{...merged.value,schema:7},updated_at:stamp}).eq('user_id',cloudUser.id).eq('updated_at',remoteRow.updated_at).select('updated_at');
    if(error)throw Error(error.message);

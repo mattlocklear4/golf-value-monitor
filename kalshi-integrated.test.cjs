@@ -1,0 +1,30 @@
+// Verifies that the integrated Kalshi view consumes the real board's projection function.
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const index=fs.readFileSync(__dirname+'/index.html','utf8');
+// The Setup panel is detached until nav.after(): a document lookup returns null.
+assert.match(index,/setupKalshiRound=panels\.setup\.querySelector\('#round'\)/,'Kalshi selector resolves in detached Setup');
+assert.doesNotMatch(index,/setupKalshiRound=document\.getElementById\('round'\)/,'navigation regression');
+const projectionSource=index.match(/function projection\(p\)\{[^\n]+\}/)?.[0];
+const snapshotSource=index.match(/window\.gvmKalshiSnapshot=\(\)=>\(\{[^\n]+\}\);/)?.[0];
+assert.ok(projectionSource&&snapshotSource,'read-only board model adapter exists');
+const board={window:{},state:{'3':{players:[{name:'Doug Ghim',dg:44},{name:'Rasmus Højgaard',dg:38.7}],par:71,field:-1.3},'4':{players:[{name:'Doug Ghim',dg:47}],par:72,field:-2}},current:'3'};
+const funcs=`let current='3';const aliases={};const roundData=()=>state[current];const average=p=>p.reduce((s,x)=>s+x.dg,0)/p.length;const number=Number;const getSd=p=>({sd:p.name==='Doug Ghim'?2.96:3.46,source:'Player-specific'});${projectionSource}\n${snapshotSource}`;
+vm.createContext(board);vm.runInContext(funcs,board);
+const snapshot=board.window.gvmKalshiSnapshot();
+assert.equal(snapshot.round,'3');
+assert.equal(snapshot.players.length,2);
+assert.ok(Math.abs(snapshot.players[0].mu-(71-1.3-(44-41.35)/4.1))<1e-9,'uses board 4.1 divisor');
+assert.equal(snapshot.players[0].sd,2.96,'uses board-specific player StDev');
+const script=fs.readFileSync(__dirname+'/kalshi-prototype.js','utf8').split("$('boardload').addEventListener")[0];
+const fields={round:{value:'1'},pcount:{},boardstatus:{},event:{value:'KXPGAROUNDSCORE-THRC26R3'},search:{value:''},minroi:{value:'-100'},qty:{value:'100'},multiplier:{value:'1'},oddsformat:{value:'american'},yesaskheader:{},noaskheader:{},positive:{checked:false},sort:{value:'roi'},rows:{children:[],replaceChildren(){this.children=[]},appendChild(x){this.children.push(x)}},status:{}};
+const host={parent:{gvmKalshiSnapshot:()=>board.window.gvmKalshiSnapshot()}};
+const frame={window:host,location:{search:'?integrated=1',hostname:'golf-test.chatgpt.site',origin:'https://golf-test.chatgpt.site'},URLSearchParams,URL,AbortController,setTimeout,clearTimeout,document:{getElementById:id=>fields[id],createElement:()=>({children:[],appendChild(x){this.children.push(x)}})},Option:function(label,value){this.label=label;this.value=value}};
+vm.createContext(frame);vm.runInContext(script,frame);vm.runInContext('syncIntegratedModel()',frame);
+assert.equal(fields.round.value,'3','selected parent round propagates');
+assert.equal(fields.pcount.textContent,'2 integrated projections');
+assert.ok(vm.runInContext("modelFor('Doug Ghim').mu",frame)>69);
+assert.equal(vm.runInContext("modelFor('Doug Ghim').sd",frame),2.96);
+vm.runInContext("current='4'",board);vm.runInContext('syncIntegratedModel()',frame);
+assert.equal(fields.round.value,'4','round changes propagate');
+assert.equal(fields.pcount.textContent,'1 integrated projections');
+console.log('Integrated board snapshot, 4.1 scoring, StDev and round sync: 10 checks passed');

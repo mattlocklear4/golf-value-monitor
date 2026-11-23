@@ -1,6 +1,6 @@
 # Production cross-device sync readiness / rollback
 
-Status: **not deployed**. Requires explicit owner approval before merging or publishing to Netlify.
+Status: **not deployed**. Requires explicit owner approval before merging or publishing to GitHub Pages.
 
 ## Scope
 
@@ -16,7 +16,7 @@ Status: **not deployed**. Requires explicit owner approval before merging or pub
 2. Ask the user to download a browser backup from the live board and verify the current selected round, odds and StDev.
 3. Plan a quiet sync window. Avoid edits from old app tabs while deploying.
 4. Confirm the branch still differs from current main only in intended code and tests; rerun `node --test cloud-sync.test.cjs`.
-5. Obtain explicit approval for merging and Netlify publication. Do not add SQL migrations.
+5. Obtain explicit approval for merging and GitHub Pages publication. Do not add SQL migrations.
 
 ## After an approved deployment
 
@@ -30,7 +30,7 @@ Status: **not deployed**. Requires explicit owner approval before merging or pub
 ## Rollback (approval required before execution)
 
 1. Stop further edits on both devices. Download current browser backups first.
-2. Restore the prior Netlify deployment built from pinned main commit `2d670f21bb43d3504f9aed44db4b5c6f84686dc4`, or redeploy that commit via Netlify UI. Do not force-push main or discard any intervening commits.
+2. Revert the sync deployment commit on `main` through a reviewed revert PR, then wait for the GitHub Pages deployment workflow to publish the reverted version. Keep any newer unrelated commits intact. Do not force-push main or discard any intervening commits.
 3. Refresh both devices to stop the new sync code. Old clients use legacy cloud sync behavior and may need one manual Load on fresh devices.
 4. Leave Supabase data untouched by default. Restoring the 2026-11-23 snapshot would overwrite edits made after that date and requires separate, explicit approval and a timestamp comparison.
 5. Diagnose any incomplete sync before reattempting rollout.

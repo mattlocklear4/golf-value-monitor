@@ -155,7 +155,19 @@ const INITIAL=[{"name": "Wyndham Clark", "dg": 43.7, "sd": 3.61, "n": 245}, {"na
 const ALIAS_KEY='gvm-v62-aliases';
 
 const unmatchedByRound={};
-const KEY='gvm-v3-rounds';const LEGACY_KEY='gvm-v2-rounds';const SD_KEY='gvm-v3-tournament-sd';
+
+const WORKSPACE_PILOT=location.pathname.includes('/multi-tour-preview/');
+const WORKSPACE_META_KEY=(WORKSPACE_PILOT?'pilot:':'')+'gvm-workspace-active-v1',WORKSPACE_LAST_KEY=(WORKSPACE_PILOT?'pilot:':'')+'gvm-workspace-last-v1';
+const workspaceValid=x=>!!x&&/^(pga|euro):[0-9]{4}:[a-z0-9-]{1,120}$/.test(x.workspace_id||'')&&x.workspace_id.split(':')[0]===x.tour&&Number(x.workspace_id.split(':')[1])===Number(x.event_year)&&typeof x.event_name==='string';
+function workspaceRead(){try{let raw=sessionStorage.getItem(WORKSPACE_META_KEY)??localStorage.getItem(WORKSPACE_META_KEY);if(raw===null&&!WORKSPACE_PILOT){raw=sessionStorage.getItem('pilot:'+WORKSPACE_META_KEY)??localStorage.getItem('pilot:'+WORKSPACE_META_KEY);if(raw!==null){sessionStorage.setItem(WORKSPACE_META_KEY,raw);localStorage.setItem(WORKSPACE_META_KEY,raw);}}const x=JSON.parse(raw??'null');return workspaceValid(x)?x:null;}catch{return null;}}
+const WORKSPACE=workspaceRead(),WORKSPACE_ID=WORKSPACE?.workspace_id||'',WORKSPACE_TOUR=WORKSPACE?.tour||'';
+const workspaceKey=(key,id=WORKSPACE_ID)=>id?key+':'+id:WORKSPACE_PILOT?'pilot:'+key:key;
+const workspaceLabel=x=>x?(x.tour==='pga'?'PGA Tour':'DP World Tour')+' · '+x.event_name+' '+x.event_year:'Existing board (unassigned)';
+function workspaceId(tour,year,id,name){const slug=String(id||name).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,120);if(!['pga','euro'].includes(tour)||!Number.isInteger(year)||year<2000||year>2100||!slug)throw Error('Invalid tournament identifier');return tour+':'+year+':'+slug;}
+function workspaceLast(){try{let raw=localStorage.getItem(WORKSPACE_LAST_KEY);if(raw===null&&!WORKSPACE_PILOT){raw=localStorage.getItem('pilot:'+WORKSPACE_LAST_KEY);if(raw!==null)localStorage.setItem(WORKSPACE_LAST_KEY,raw);}return JSON.parse(raw??'{}')||{};}catch{return {};}}
+async function workspaceSwitch(meta){if(meta&&!workspaceValid(meta))throw Error('Invalid workspace');if(cloudBusy||cloudCheckRunning){alert('Cloud sync is in progress. Switch after the current save completes.');return;}if(cloudEnabled&&cloudReady()){const base=cloudBaseline();if(base&&!cloudSame(JSON.parse(base.payload),JSON.parse(cloudPayload()))){clearTimeout(cloudTimer);cloudPending=false;await cloudPush(false);if(cloudPending||!cloudEnabled){if(!confirm('The current workspace has unsynced changes. They remain saved on this device. Switch anyway?'))return;}}}if(meta){const last=workspaceLast();last[meta.tour]=meta.workspace_id;localStorage.setItem(WORKSPACE_LAST_KEY,JSON.stringify(last));}const value=JSON.stringify(meta||null);sessionStorage.setItem(WORKSPACE_META_KEY,value);localStorage.setItem(WORKSPACE_META_KEY,value);location.reload();}
+
+const KEY=workspaceKey('gvm-v3-rounds');const LEGACY_KEY=workspaceKey('gvm-v2-rounds');const SD_KEY=workspaceKey('gvm-v3-tournament-sd');
 const $=id=>document.getElementById(id);
 const clean=s=>String(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
 const aliases={'benjamin james':'ben james','john keefer':'johnny keefer','jordan smith':'jordan l smith','hao tong li':'haotong li'};
@@ -166,21 +178,22 @@ const ROUND_SCORE_SD=2.85;
 // Legacy StDev data remains in existing backups/cloud snapshots for compatibility only.
 let sdState;try{sdState=JSON.parse(localStorage.getItem(SD_KEY)||'null')}catch(e){};if(!sdState||typeof sdState!=='object')sdState={lookup:{},defaultSd:ROUND_SCORE_SD,uploaded:null};
 if(!state||typeof state!=='object')state={};
-if(!state['1'])state['1']={players:INITIAL,odds:{},par:71,field:-1.30,divisor:4.1,uploaded:'Bundled Round 1 example'};
+if(!state['1']&&!WORKSPACE&&!WORKSPACE_PILOT)state['1']={players:INITIAL,odds:{},par:71,field:-1.30,divisor:4.1,uploaded:'Bundled Round 1 example'};
 const BOOKS=['DraftKings','FanDuel','Caesars','Fanatics'];
 for(const k of ['1','2','3','4']){let d=state[k];if(!d)continue;if(!d.books||typeof d.books!=='object')d.books={};if(d.odds&&Object.keys(d.odds).length&&!d.books.DraftKings)d.books.DraftKings={...d.odds};if(!d.bookUpdated)d.bookUpdated={};}
-let current='1';let sort='roi';
+let current=localStorage.getItem(workspaceKey('gvm-selected-round'))||'1';if(!['1','2','3','4'].includes(current))current='1';let sort='roi';
 function roundData(){return state[current]||(state[current]={players:[],books:{},bookUpdated:{},par:71,field:-1.30,divisor:4.1});}
 let cloudClient=null,cloudUser=null,cloudEnabled=false,cloudBusy=false,cloudTimer=null,cloudPending=false;
 let cloudPollTimer=null,cloudLastSaved='',cloudLastReceived='',cloudCheckRunning=false;
 let cloudRetryMs=0;
 // The separate Sites preview may read a configured account, but must never write
 // production Supabase records. GitHub/Netlify builds retain normal sync behavior.
-const CLOUD_READ_ONLY_PREVIEW=location.hostname.endsWith('.chatgpt.site');
+const CLOUD_READ_ONLY_PREVIEW=location.hostname.endsWith('.chatgpt.site')||(WORKSPACE_PILOT&&!WORKSPACE);
 const CLOUD_TEST_TABLE='sync_test_board_state';
-const CLOUD_TABLE=CLOUD_READ_ONLY_PREVIEW?CLOUD_TEST_TABLE:'user_board_state';
+const CLOUD_TABLE=CLOUD_READ_ONLY_PREVIEW?CLOUD_TEST_TABLE:WORKSPACE?'golf_tournament_boards':'user_board_state';
+const boardScope=q=>WORKSPACE&&!CLOUD_READ_ONLY_PREVIEW?q.eq('workspace_id',WORKSPACE_ID):q;
 const CLOUD_TEST_PROJECT='https://gyyasyrcrbhimeyaddga.supabase.co';
-function persist(){localStorage.setItem(KEY,JSON.stringify(state));cloudSchedule();}
+function persist(){localStorage.setItem(KEY,JSON.stringify(state));if(!WORKSPACE_PILOT||WORKSPACE)cloudSchedule();}
 function persistSd(){localStorage.setItem(SD_KEY,JSON.stringify(sdState));cloudSchedule();}
 function getSd(){return {sd:ROUND_SCORE_SD,source:"Fixed"};}
 function average(players){let a=players.map(p=>Number(p.dg)).filter(Number.isFinite);return a.length?a.reduce((x,y)=>x+y,0)/a.length:NaN;}
@@ -314,7 +327,7 @@ function render(){let d=roundData(),a=average(d.players),all=d.players.flatMap(o
  for(const o of rows){let tr=document.createElement('tr');function cell(t,cls=''){let td=document.createElement('td');td.textContent=t;td.className=cls;tr.appendChild(td);}cell(o.p.name,'player');gvmMakePlayerClickable(tr.lastElementChild,o.p.name);cell(o.side);cell(o.book);cell(o.line??'—');cell(o.od===null?'—':(o.od>0?'+':'')+o.od);cell(o.fair);cell(o.pr===null?'—':pct(o.pr));cell(o.edge===null?'—':(o.edge>=0?'+':'')+pct(o.edge),o.edge>0?'edge':'loss');cell(o.roi===null?'—':(o.roi>=0?'+':'')+pct(o.roi),o.roi>0?'edge':'loss');cell(Number.isFinite(o.mu)?o.mu.toFixed(2):'—');cell(Number.isFinite(o.mu)?(o.mu-d.par).toFixed(2):'—');let st=getSd(o.p);cell(st.sd.toFixed(2));cell(st.source,st.source==='Default'?'warn':'ok');cell(Number(o.p.dg).toFixed(2));body.appendChild(tr);}
  switchScreen();if($('screen').value==='board')renderBoard();bobRender();bogeyRender();parsRender();updateQuality();let statuses=BOOKS.map(b=>b+': '+(Object.keys(d.books?.[b]||{}).length)+' players'+(d.bookUpdated?.[b]?' · '+new Date(d.bookUpdated[b]).toLocaleString():''));$('bookStatus').textContent=statuses.join(' | ');
 }
-function updateControls(){let d=roundData();const boardRound=document.getElementById('boardRound');if(boardRound)boardRound.value=current;$('par').value=String(d.par);$('field').value=d.field;let a=average(d.players);$('dgstatus').textContent=(d.uploaded||'No CSV uploaded')+' · '+d.players.length+' players · '+(current==='4'?'scoring_points (I)':'total_points (L)')+' · fantasy average '+(Number.isFinite(a)?a.toFixed(4):'—');render();}
+function updateControls(){let d=roundData();$('round').value=current;const boardRound=document.getElementById('boardRound');if(boardRound)boardRound.value=current;$('par').value=String(d.par);$('field').value=d.field;let a=average(d.players);$('dgstatus').textContent=(d.uploaded||'No CSV uploaded')+' · '+d.players.length+' players · '+(current==='4'?'scoring_points (I)':'total_points (L)')+' · fantasy average '+(Number.isFinite(a)?a.toFixed(4):'—');render();}
 
 function updateQuality(){
  const d=roundData(),players=d.players||[];
@@ -339,8 +352,8 @@ $('saveAlias').onclick=()=>{
 };
 $('boardMinRoi').addEventListener('input',renderBoard);
 
-function gvmMakePlayerClickable(td,name){td.replaceChildren();const b=document.createElement('button');b.type='button';b.className='gvm-history-link';b.textContent=name;b.title='View '+name+' tournament round history';b.addEventListener('click',()=>gvmOpenPlayerHistory(name));td.appendChild(b);}
-$('round').onchange=e=>{current=e.target.value;
+function gvmMakePlayerClickable(td,name,workspace=WORKSPACE_ID){td.replaceChildren();const b=document.createElement('button');b.type='button';b.className='gvm-history-link';b.textContent=name;b.title='View '+name+' tournament round history';b.addEventListener('click',()=>gvmOpenPlayerHistory(name,workspace));td.appendChild(b);}
+$('round').onchange=e=>{current=e.target.value;localStorage.setItem(workspaceKey('gvm-selected-round'),current);if(WORKSPACE){state.workspaceRound=current;persist();}
 
 updateControls();updateSdStatus();};for(let id of ['par','field']){$(id).addEventListener('change',e=>{roundData()[id]=number(e.target.value);persist();render();});}
 $('resetModel').onclick=()=>{let d=roundData();d.par=71;d.field=-1.30;persist();updateControls();};
@@ -380,7 +393,7 @@ try{for(const k of ['gvm_ms_token','gvm_ms_expiry','gvm_ms_pkce','gvm_ms_state']
 // V7: browser-local data is authoritative until the user explicitly migrates.
 const CLOUD_CONFIG_KEY='gppb-v7-cloud-config';
 // Cloud runtime state is initialized above the board event handlers.
-const CLOUD_BASE_KEY='gppb-v73-synced-base';
+const CLOUD_BASE_KEY=workspaceKey('gppb-v73-synced-base');
 function cloudPayload(){const s=cloudSnapshot();return JSON.stringify({rounds:s.rounds,stdev:s.stdev,aliases:s.aliases});}
 function cloudBaseline(){try{return JSON.parse(localStorage.getItem(CLOUD_BASE_KEY)||'null')}catch{return null}}
 function cloudMarkSynced(updatedAt,snapshot){localStorage.setItem(CLOUD_BASE_KEY,JSON.stringify({payload:JSON.stringify(snapshot||JSON.parse(cloudPayload())),updatedAt}));}
@@ -402,10 +415,10 @@ function cloudMerge(base,local,remote,path=''){
 }
 function cloudRemoteSnapshot(found){const data=found.data?.board_data||{};return {rounds:data.rounds||{},stdev:data.stdev||{},aliases:data.aliases||found.preferences.aliases||{}};}
 function cloudApplySnapshot(snapshot){
- state=snapshot.rounds;sdState=snapshot.stdev;
- localStorage.setItem(KEY,JSON.stringify(state));localStorage.setItem(SD_KEY,JSON.stringify(sdState));localStorage.setItem(ALIAS_KEY,JSON.stringify(snapshot.aliases));
- for(const k of Object.keys(aliases))delete aliases[k];Object.assign(aliases,snapshot.aliases);
- const selected=current;updateControls();current=selected;$('round').value=selected;updateSdStatus();updateQuality();render();
+ state=structuredClone(snapshot.rounds||{});sdState=structuredClone(snapshot.stdev||{});
+ localStorage.setItem(KEY,JSON.stringify(state));localStorage.setItem(SD_KEY,JSON.stringify(sdState));localStorage.setItem(ALIAS_KEY,JSON.stringify({...aliases,...snapshot.aliases}));
+ Object.assign(aliases,snapshot.aliases);
+ const selected=current;updateControls();current=selected;$('round').value=selected;updateSdStatus();updateQuality();render();window.dispatchEvent(new Event('gvm-workspace-synced'));
 }
 function cloudStamp(){return `Cloud saved: ${cloudLastSaved?new Date(cloudLastSaved).toLocaleString():'not yet'} · Received: ${cloudLastReceived?new Date(cloudLastReceived).toLocaleString():'not yet'}`;}
 function cloudSyncStatus(message){cloudMsg(message+' · '+cloudStamp());}
@@ -437,7 +450,7 @@ async function cloudReconcile(found,initial){
 async function cloudRestore(){
  if(!cloudReady())return;
  const base=cloudBaseline();
- if(!base){cloudEnabled=false;cloudPauseUI();cloudMsg('Signed in. Choose Upload or Load to initialize cloud sync on this browser.');return;}
+ if(!base){if(WORKSPACE&&!CLOUD_READ_ONLY_PREVIEW){try{const found=await cloudRead();if(!found.data?.board_data?.rounds)throw Error('Tournament workspace not found.');const remote=cloudRemoteSnapshot(found);const localSaved=localStorage.getItem(KEY);const localHasData=!!localSaved;if(localHasData&&!cloudSame(JSON.parse(localSaved),remote.rounds)){cloudEnabled=false;cloudPauseUI();cloudMsg('Local tournament data has no sync baseline. Load cloud data only after checking your local copy.');return;}if(!localStorage.getItem(workspaceKey('gvm-selected-round'))&&['1','2','3','4'].includes(remote.rounds.workspaceRound))current=remote.rounds.workspaceRound;cloudApplySnapshot(remote);cloudMarkSynced(found.data.updated_at,remote);cloudEnabled=true;cloudLastReceived=found.data.updated_at;cloudStartPolling();cloudPauseUI();cloudSyncStatus('Tournament cloud data loaded. Automatic sync active.');return;}catch(e){cloudMsg('Tournament cloud load failed: '+e.message);return;}}cloudEnabled=false;cloudPauseUI();cloudMsg('Signed in. Choose Upload or Load to initialize cloud sync on this browser.');return;}
  cloudBusy=true;
  try{
   const found=await cloudRead(),remote=found.data;
@@ -496,7 +509,7 @@ async function cloudLogin(){
  cloudMsg(error?'Sign-in failed: '+error.message:'Sign-in email sent to '+email+'. Open the link in this browser, then return to this section.');
 }
 async function cloudRead(){
- const {data,error}=await cloudClient.from(CLOUD_TABLE).select('board_data,updated_at').eq('user_id',cloudUser.id).maybeSingle();
+ const {data,error}=await boardScope(cloudClient.from(CLOUD_TABLE).select('board_data,updated_at').eq('user_id',cloudUser.id)).maybeSingle();
  if(error)throw new Error(error.message);
  if(CLOUD_READ_ONLY_PREVIEW)return {data,preferences:{}};
  const {data:pref,error:prefError}=await cloudClient.from('user_preferences').select('preferences').eq('user_id',cloudUser.id).maybeSingle();
@@ -504,6 +517,7 @@ async function cloudRead(){
  return {data,preferences:pref?.preferences||{}};
 }
 async function cloudPush(manual){
+ if(WORKSPACE_PILOT&&!WORKSPACE){cloudMsg('Preview legacy board is read-only. Create a tournament workspace first.');return;}
  if(!cloudReady()){cloudMsg('Sign in first.');return;}
  if(CLOUD_READ_ONLY_PREVIEW&&CLOUD_TABLE!==CLOUD_TEST_TABLE){cloudSyncStatus('Preview write blocked.');return;}
  if(cloudBusy){cloudPending=true;return;}
@@ -515,7 +529,7 @@ async function cloudPush(manual){
    if(!remoteRow?.board_data?.rounds){
     if(!manual)throw Error('Cloud record missing. No automatic overwrite attempted.');
     const snap=JSON.parse(cloudPayload()),stamp=new Date().toISOString();
-    const {error}=await cloudClient.from(CLOUD_TABLE).insert({user_id:cloudUser.id,board_data:{...snap,schema:7},updated_at:stamp});
+    const {error}=await cloudClient.from(CLOUD_TABLE).insert({user_id:cloudUser.id,...(WORKSPACE&&!CLOUD_READ_ONLY_PREVIEW?WORKSPACE:{}),board_data:{...snap,schema:7},updated_at:stamp});
     if(error)throw Error(error.message);
     cloudMarkSynced(stamp,snap);cloudLastSaved=stamp;cloudLastReceived=stamp;cloudEnabled=true;cloudStartPolling();cloudSyncStatus('Cloud initialized safely.');return;
    }
@@ -529,7 +543,7 @@ async function cloudPush(manual){
    // Ensure every successful CAS changes the version even if a device clock lags.
    const stamp=new Date(Math.max(Date.now(),Date.parse(remoteRow.updated_at)+1)+attempt).toISOString();
    // Atomic compare-and-swap: concurrent writers cannot both overwrite the same version.
-   const {data:updated,error}=await cloudClient.from(CLOUD_TABLE).update({board_data:{...merged.value,schema:7},updated_at:stamp}).eq('user_id',cloudUser.id).eq('updated_at',remoteRow.updated_at).select('updated_at');
+   const {data:updated,error}=await boardScope(cloudClient.from(CLOUD_TABLE).update({board_data:{...merged.value,schema:7},updated_at:stamp}).eq('user_id',cloudUser.id)).eq('updated_at',remoteRow.updated_at).select('updated_at');
    if(error)throw Error(error.message);
    if(!updated?.length)continue; // Another device won the race; refetch and merge.
    const now=JSON.parse(cloudPayload()),post=cloudMerge(local,now,merged.value);
@@ -544,6 +558,7 @@ async function cloudPush(manual){
  finally{cloudBusy=false;if(cloudPending&&cloudEnabled)cloudSchedule();}
 }
 async function cloudPull(){
+ if(WORKSPACE_PILOT&&!WORKSPACE){cloudMsg('Preview legacy board is read-only. Use the explicit copy option.');return;}
  if(!cloudReady()){cloudMsg('Sign in first.');return;}
  cloudEnabled=false;clearTimeout(cloudTimer);cloudBusy=true;
  try{
@@ -569,7 +584,7 @@ $('cloudPause').onclick=()=>{if(cloudEnabled){cloudEnabled=false;clearTimeout(cl
 cloudButtons();cloudPauseUI();
 $('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);clearInterval(cloudPollTimer);if(cloudClient)await cloudClient.auth.signOut();cloudUser=null;cloudButtons();cloudMsg('Signed out. Browser data remains available.');};
 (function(){const onWake=()=>{if(cloudEnabled&&cloudReady())cloudCheckUpdates();};window.addEventListener('online',onWake);window.addEventListener('focus',onWake);document.addEventListener('visibilitychange',()=>{if(!document.hidden)onWake();});})();
-(function(){const c=cloudConfig();if(c.url&&c.key){$('cloudUrl').value=c.url;$('cloudKey').value=c.key;$('cloudEmail').value=c.email||'';cloudConfigure();}})();
+(function(){const c=cloudConfig();if(c.url&&c.key){$('cloudUrl').value=c.url;$('cloudKey').value=c.key;$('cloudEmail').value=c.email||'';if(!WORKSPACE&&!WORKSPACE_PILOT)cloudConfigure();}})();
 
 </script><script>
 /* V7.4 presentation-only navigation. Move original DOM nodes (never clone),
@@ -597,10 +612,10 @@ $('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);c
  }
  const weatherPanel=document.createElement('div');weatherPanel.className='panel';
  weatherPanel.innerHTML='<div class="panelhead"><h2>Historical Weather</h2></div><p class="note">Historical wind, gusts, direction and rainfall. API requests run through a local or Netlify server; keys are never included in the browser.</p><iframe title="Historical Weather Dashboard" src="weather.html" style="width:100%;min-height:1250px;border:0;border-radius:12px;background:#08111e" loading="lazy"></iframe>';
- panels.weather.appendChild(weatherPanel);
+ panels.weather.appendChild(weatherPanel);if(WORKSPACE)weatherPanel.querySelector('iframe').src='weather.html?workspace='+encodeURIComponent(WORKSPACE_ID)+'&tour='+encodeURIComponent(WORKSPACE_TOUR)+'&event='+encodeURIComponent(WORKSPACE.event_name)+'&course='+encodeURIComponent(WORKSPACE.course_name||'');
  const historyTablesPanel=document.createElement('div');historyTablesPanel.className='panel';
  historyTablesPanel.innerHTML='<div class="panelhead"><h2>Tournament History Tables</h2></div><p class="note">Historical scoring and cached weather side by side. No additional weather API calls.</p><iframe title="Tournament History Tables" src="history-tables.html?v=color-scale-20261125" style="width:100%;min-height:1700px;border:0;border-radius:12px;background:#08111e" loading="lazy"></iframe>';
- panels.historytables.appendChild(historyTablesPanel);
+ panels.historytables.appendChild(historyTablesPanel);if(WORKSPACE_PILOT&&!WORKSPACE)historyTablesPanel.querySelector('iframe').src='history-tables.html?pilot=1';if(WORKSPACE)historyTablesPanel.querySelector('iframe').src='history-tables.html?v=multi-tour-1&workspace='+encodeURIComponent(WORKSPACE_ID);
  // V7.6: Separate BoB board with independent sportsbook odds, shared players/rounds.
  const bobPanel=document.createElement('div');bobPanel.className='panel';
  bobPanel.innerHTML=`<div class="panelhead"><h2>Birdies or Better (BoB) Board</h2><label class="gvm-board-round">Tournament round<select id="bobRound" aria-label="Tournament round on BoB Board"><option value="1">Round 1</option><option value="2">Round 2</option><option value="3">Round 3</option><option value="4">Round 4</option></select></label><span id="bobCount" class="help"></span></div>
@@ -676,15 +691,18 @@ $('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);c
  <label>Minimum ROI %<input id="bestBetsMin" type="number" step="1" value="0" style="width:110px"></label>
  <label>Prop type<select id="bestBetsProp"><option value="all">All prop types</option><option>Round Score</option><option>BoB</option><option>Bogey+</option><option>Pars</option></select></label>
  <label>Sportsbook<select id="bestBetsBook"><option value="all">All sportsbooks</option><option>DraftKings</option><option>FanDuel</option><option>Caesars</option><option>Fanatics</option></select></label>
- <label>Round<select id="bestBetsRound"><option value="1">Round 1</option><option value="2">Round 2</option><option value="3">Round 3</option><option value="4">Round 4</option></select></label>
- </div><div class="table-wrap"><table id="bestBetsTable" class="board-table"><thead><tr><th>Player</th><th>Prop</th><th>Sportsbook</th><th>Bet</th><th>Line</th><th>Book Odds</th><th>Fair Odds</th><th>ROI %</th></tr></thead><tbody id="bestBetsBody"></tbody></table></div><div id="gvm-bestbet-cards" aria-label="Best Bets mobile cards"></div>
+ <label>Tour scope<select id="bestBetsScope"><option value="active">Active workspace</option><option value="both">Both tours</option></select></label><label>Round (active workspace)<select id="bestBetsRound"><option value="1">Round 1</option><option value="2">Round 2</option><option value="3">Round 3</option><option value="4">Round 4</option></select></label>
+ </div><p class="help" id="bestBetsWorkspaceStatus"></p><div class="table-wrap"><table id="bestBetsTable" class="board-table"><thead><tr><th>Player / Tournament</th><th>Prop</th><th>Sportsbook</th><th>Bet</th><th>Line</th><th>Book Odds</th><th>Fair Odds</th><th>ROI %</th></tr></thead><tbody id="bestBetsBody"></tbody></table></div><div id="gvm-bestbet-cards" aria-label="Best Bets mobile cards"></div>
  <p class="help">All positive-ROI offers, highest first. Uses the existing pricing models for each prop. Filters are view-only.</p>`;
  panels.bestbets.appendChild(bestPanel);
+ let otherBetBoards=[],otherBetLoading=false,otherBetError='';
+ async function loadOtherBetBoards(){if(otherBetLoading||$('bestBetsScope').value!=='both')return;otherBetLoading=true;otherBetError='';try{const client=window.golfPagesAuth?.client;if(!client)throw Error('Sign in to compare both tours.');const {data:u,error:ue}=await client.auth.getUser();if(ue||!u.user)throw Error('Sign in first.');const registry=window.gvmWorkspaceRegistry||[],last=workspaceLast();const targets=['pga','euro'].map(t=>registry.find(x=>x.workspace_id===last[t]&&x.tour===t)||registry.find(x=>x.tour===t)).filter(x=>x&&x.workspace_id!==WORKSPACE_ID);const {data,error}=targets.length?await client.from('golf_tournament_boards').select('workspace_id,board_data,updated_at').eq('user_id',u.user.id).in('workspace_id',targets.map(x=>x.workspace_id)):{data:[]};if(error)throw error;otherBetBoards=(data||[]).flatMap(x=>{const meta=targets.find(t=>t.workspace_id===x.workspace_id);return meta&&x.board_data?.rounds?[{meta,rounds:x.board_data.rounds,round:['1','2','3','4'].includes(x.board_data.rounds.workspaceRound)?x.board_data.rounds.workspaceRound:localStorage.getItem(workspaceKey('gvm-selected-round',x.workspace_id))||'1',updated_at:x.updated_at}]:[];});}catch(e){otherBetBoards=[];otherBetError=e.message||String(e);}finally{otherBetLoading=false;renderBestBets();}}
  function renderBestBets(){
   const body=$('bestBetsBody');if(!body)return;
   $('bestBetsRound').value=current;
   const query=clean($('bestBetsSearch').value),min=Math.max(0,Number($('bestBetsMin').value)||0)/100,prop=$('bestBetsProp').value,bookFilter=$('bestBetsBook').value;
-  const rows=[];
+  const rows=[],scope=$('bestBetsScope').value,contexts=[{meta:WORKSPACE,round:current,rounds:state}];if(scope==='both'){if(!WORKSPACE)contexts.length=0;contexts.push(...otherBetBoards);}const originalState=state,originalRound=current;
+  try{for(const ctx of contexts){state=ctx.rounds;current=ctx.round;const first=rows.length;
   for(const p of roundData().players){if(!clean(p.name).includes(query))continue;
    for(const book of BOOKS){if(bookFilter!=='all'&&book!==bookFilter)continue;
     if(prop==='all'||prop==='Round Score')for(const o of offers(p).filter(x=>x.book===book))rows.push({p,prop:'Round Score',book,side:o.side,line:o.line,odds:o.od,fair:o.fair,roi:o.roi});
@@ -696,16 +714,19 @@ $('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);c
     }
    }
   }
+  for(let i=first;i<rows.length;i++){rows[i].workspace=ctx.meta?.workspace_id||'';rows[i].tournament=workspaceLabel(ctx.meta);rows[i].round=ctx.round;}
+  }}finally{state=originalState;current=originalRound;}
+  $('bestBetsWorkspaceStatus').textContent=contexts.map(x=>workspaceLabel(x.meta)+' · R'+x.round).join(' | ')+(scope==='both'?' · Other workspaces use their last synced data. '+(otherBetError|| (otherBetLoading?'Loading other tournament…':'')):'');
   const valid=rows.filter(r=>Number.isFinite(r.roi)&&r.roi>0&&r.roi>=min).sort((a,b)=>b.roi-a.roi||a.p.name.localeCompare(b.p.name));
-  body.replaceChildren();$('bestBetsCount').textContent=valid.length+' positive-ROI offers'+' · Round '+current;
+  body.replaceChildren();$('bestBetsCount').textContent=valid.length+' positive-ROI offers'+' · '+(scope==='both'?'Both tours':'Round '+current);
   const cards=$('gvm-bestbet-cards');cards.replaceChildren();
   for(const r of valid){
    const card=document.createElement('article');card.className='gvm-bet-card';
    const head=document.createElement('div');head.className='gvm-bet-card-head';
-   const name=document.createElement('span');name.className='player';name.textContent=r.p.name;gvmMakePlayerClickable(name,r.p.name);
+   const name=document.createElement('span');name.className='player';name.textContent=r.p.name;gvmMakePlayerClickable(name,r.p.name,r.workspace);
    const roi=document.createElement('strong');roi.className='gvm-bet-roi '+roiClass(r.roi);roi.textContent='+'+pct(r.roi)+' ROI';
    head.append(name,roi);
-   const context=document.createElement('div');context.className='gvm-bet-context';context.textContent=r.prop+' · '+r.book;
+   const context=document.createElement('div');context.className='gvm-bet-context';context.textContent=r.tournament+' · R'+r.round+' · '+r.prop+' · '+r.book;
    const pick=document.createElement('div');pick.className='gvm-bet-pick';pick.textContent=r.side+' '+r.line.toFixed(1)+(r.prop==='Round Score'?'':' '+r.prop);
    const prices=document.createElement('div');prices.className='gvm-bet-prices';
    for(const [label,value] of [['Book odds',moneyOdds(r.odds)],['Fair odds',r.fair]]){
@@ -716,12 +737,12 @@ $('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);c
   }
   if(!valid.length){const empty=document.createElement('div');empty.className='gvm-bet-empty';empty.textContent='No positive-ROI offers match these filters.';cards.appendChild(empty);}
   for(const r of valid){const tr=document.createElement('tr');for(const [i,v] of [r.p.name,r.prop,r.book,r.side,r.line.toFixed(1),moneyOdds(r.odds),r.fair,'+'+pct(r.roi)].entries()){
-    const td=document.createElement('td');td.textContent=v;if(i===0){td.className='player';gvmMakePlayerClickable(td,r.p.name);}if(i>=4)td.classList.add('num');if(i===7)td.className=roiClass(r.roi);tr.appendChild(td);
+    const td=document.createElement('td');td.textContent=v;if(i===0){td.className='player';gvmMakePlayerClickable(td,r.p.name,r.workspace);const caption=document.createElement('small');caption.style.cssText='display:block;color:var(--muted);font-size:11px;white-space:normal';caption.textContent=r.tournament+' · R'+r.round;td.append(caption);}if(i>=4)td.classList.add('num');if(i===7)td.className=roiClass(r.roi);tr.appendChild(td);
    }body.appendChild(tr);
   }
   if(!valid.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=8;td.className='empty';td.textContent='No positive-ROI offers match these filters. Import sportsbook odds or adjust the filters.';tr.appendChild(td);body.appendChild(tr);}
  }
- for(const id of ['bestBetsSearch','bestBetsMin','bestBetsProp','bestBetsBook'])$(id).addEventListener('input',renderBestBets);
+ for(const id of ['bestBetsSearch','bestBetsMin','bestBetsProp','bestBetsBook'])$(id).addEventListener('input',renderBestBets);$('bestBetsScope').onchange=()=>{renderBestBets();loadOtherBetBoards();};window.addEventListener('gvm-workspace-registry',loadOtherBetBoards);window.addEventListener('gvm-workspace-synced',()=>{if(!panels.bestbets.hidden){renderBestBets();loadOtherBetBoards();}});setInterval(()=>{if(!panels.bestbets.hidden)loadOtherBetBoards();},30000);
  $('bestBetsRound').addEventListener('change',e=>{const r=$('round');r.value=e.target.value;r.dispatchEvent(new Event('change',{bubbles:true}));renderBestBets();});
  $('round').addEventListener('change',()=>{if(!panels.bestbets.hidden)renderBestBets();});
  // V8.2.8: Make the destination round explicit for all four sportsbook imports.
@@ -818,7 +839,7 @@ $('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);c
   backup.innerHTML='<h2>Backup &amp; restore</h2><p class="note">Save a local copy of all four rounds, applied coefficients, sportsbook odds and player aliases. Backups do not include login tokens.</p><div class="gvm-backup-controls"><button type="button" id="gvmDownloadBackup">Download JSON backup</button><label>Restore JSON backup <input id="gvmRestoreFile" type="file" accept=".json,application/json"></label></div><p id="gvmBackupStatus" class="note" role="status"></p>';
   panels.setup.appendChild(backup);
   backup.querySelector('#gvmDownloadBackup').addEventListener('click',()=>{
-   const data={format:'golf-player-prop-board-backup',version:1,exportedAt:new Date().toISOString(),rounds:state,stdev:sdState,aliases:JSON.parse(localStorage.getItem(ALIAS_KEY)||'{}')};
+   const data={format:'golf-player-prop-board-backup',version:1,workspace:WORKSPACE,exportedAt:new Date().toISOString(),rounds:state,stdev:sdState,aliases:JSON.parse(localStorage.getItem(ALIAS_KEY)||'{}')};
    const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='golf-prop-board-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
    backup.querySelector('#gvmBackupStatus').textContent='Backup downloaded. Keep it in a safe folder.';
   });
@@ -829,10 +850,12 @@ $('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);c
     if(file.size>20*1024*1024)throw Error('File exceeds 20 MB limit.');
     const data=JSON.parse(await file.text());
     if(data.format!=='golf-player-prop-board-backup'||data.version!==1||!data.rounds||typeof data.rounds!=='object'||Array.isArray(data.rounds)||!data.stdev||typeof data.stdev!=='object'||!data.aliases||typeof data.aliases!=='object'||Array.isArray(data.aliases))throw Error('Not a supported Golf Player Prop Board backup.');
+    if(data.workspace?.workspace_id&&data.workspace.workspace_id!==WORKSPACE_ID)throw Error('This backup belongs to '+workspaceLabel(data.workspace)+'. Open that workspace first.');
     for(const [key,round] of Object.entries(data.rounds)){
+     if(['bob','pars','modelBuilderSettings','workspaceRound'].includes(key))continue;
      if(!['1','2','3','4'].includes(key)||!round||!Array.isArray(round.players)||round.players.length>1000||round.players.some(p=>!p||typeof p.name!=='string'||!Number.isFinite(Number(p.dg)))||round.books&&typeof round.books!=='object')throw Error('Invalid round data in backup.');
     }
-    if(!confirm('Restore this backup? It will replace ALL locally saved rounds, odds, models and aliases in this browser. Cloud auto-sync will be paused. Continue?')){msg.textContent='Restore cancelled.';return;}
+    if(!confirm('Restore this backup into '+workspaceLabel(WORKSPACE)+'? It will replace this workspace’s locally saved rounds, odds and models. Cloud auto-sync will be paused. Continue?')){msg.textContent='Restore cancelled.';return;}
     cloudEnabled=false;cloudPending=false;if(cloudTimer){clearTimeout(cloudTimer);cloudTimer=null;}
     localStorage.removeItem(CLOUD_BASE_KEY);
     state=data.rounds;sdState=data.stdev;
@@ -862,9 +885,9 @@ $('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);c
  const panel=document.getElementById('gvm-panel-history');if(!panel)return;
  const COLUMNS=[['B','Year'],['C','Season'],['D','Event'],['H','Player'],['J','Finish'],['K','Round'],['L','Course'],['N','Par'],['P','Tee Time'],['Q','Score'],['R','To Par'],['Z','Driving Acc.'],['AA','Fairways'],['AB','GIR %'],['AC','Greens'],['AI','Eagles+'],['AJ','Birdies'],['AK','BoB'],['AL','Pars'],['AM','Bogeys'],['AN','Doubles+'],['AO','Bogey+']];
  const NUMERIC=new Set(['B','C','K','N','Q','R','Z','AA','AB','AC','AI','AJ','AK','AL','AM','AN','AO']);
- const CACHE='gvm-v77-tournament-history';let records=[],source='',sortCol='',sortDir=1,view=[],limit=250;
+ const CACHE=workspaceKey('gvm-v77-tournament-history');let records=[],source='',sortCol='',sortDir=1,view=[],limit=250;
  panel.innerHTML=`<div class="panel" id="historyPanel"><div class="panelhead"><h2>Tournament History <span class="tag">V7.7.6</span></h2><span id="histStatus" class="help">No history imported yet.</span></div><p class="note">Search DataGolf by tournament or course. The 22-column history automatically saves to your private cloud history and loads on your other devices when you refresh.</p><div class="toolbar"><div class="toolbar"><label>DataGolf tour<select id="dgTour"><option value="pga">PGA</option><option value="euro">DP World</option><option value="liv">LIV</option><option value="kft">Korn Ferry</option><option value="anz">Australasia</option></select></label><button id="dgUpcoming">Find this week’s tournament</button><button id="dgEvents">Find historical events</button><label>Search course<input id="dgCourseSearch" type="search" placeholder="The Lakes GC"></label><label>From year<input id="dgFromYear" type="number" min="2017" max="2100" value="2023"></label><button id="dgFindCourse">Find course history</button><span style="color:#94a3b8;font-size:11px">Course search v2 · annual archives</span><button id="dgCancelCourse" hidden>Cancel search</button><div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px"><label>Search tournament<input id="dgSearch" type="search" placeholder="Hero World Challenge"></label><div style="position:relative;min-width:230px;max-width:100%"><span style="display:block;margin-bottom:5px;color:#9db5d0;font-size:12px">Tournaments</span><details id="dgEventMenu"><summary id="dgEventSummary" style="cursor:pointer;background:#101b2b;border:1px solid #40536d;padding:10px;border-radius:8px;max-width:310px;overflow-wrap:anywhere">Load historical events first</summary><div style="position:absolute;z-index:30;top:100%;left:0;width:340px;max-width:85vw;background:#152338;border:1px solid #40536d;border-radius:8px;padding:10px;box-shadow:0 8px 24px #0008"><label style="display:block;margin-bottom:8px;color:#dbeafe">Filter tournaments<input id="dgEventFilter" type="search" placeholder="Type a tournament name…" aria-label="Filter historical tournaments" autocomplete="off" style="display:block;width:100%;min-width:0;box-sizing:border-box;margin-top:5px"></label><div id="dgEventFilterCount" class="help" aria-live="polite" style="margin-bottom:8px"></div><div style="display:flex;gap:6px;flex-wrap:wrap"><button id="dgEventsAll" type="button">Select matching</button><button id="dgEventsNone" type="button">Clear all</button></div><div id="dgEventOptions" style="max-height:300px;overflow:auto;margin-top:8px" role="group" aria-label="Historical tournaments"></div></div></details></div><label>From year<select id="dgYearStart"></select></label><label>Through year<select id="dgYearEnd"></select></label><details id="dgCustomYears" style="align-self:flex-end"><summary style="cursor:pointer;padding:8px">Customize years</summary><div style="display:flex;gap:6px"><button id="dgYearsAll" type="button">All</button><button id="dgYearsNone" type="button">None</button></div><label>Included years<select id="dgEditions" multiple size="6"></select></label></details><button id="dgRounds">Fetch selected years</button><span id="dgYearCount" class="help" aria-live="polite"></span></div><label>Course<select id="dgCourse" multiple size="4"></select></label><label>Fairway lookup CSV<input id="dgFairways" type="file" accept=".csv"></label><button id="dgUse">Use selected history</button><button id="dgRestore">Sync history now</button><button id="histPublish" type="button" hidden>Save local history to cloud</button><button id="dgAddCourse">Add or update course</button><button id="dgLoadCourses">Load cloud course library</button></div><p class="help" id="dgStatus" role="status">Select one or more tournament names and a year range, or search by course.</p><button id="histExport">Export filtered CSV</button><button id="histClear">Clear this device’s history</button><span id="histSyncStatus" class="help" role="status">Cloud history: connecting…</span></div><div class="toolbar"><label>Year<select id="histYear"></select></label><label>Season<select id="histSeason"></select></label><label>Round<select id="histRound"></select></label><label>Course<select id="histCourse"></select></label><label>AM/PM<select id="histWave"><option value="">All waves</option><option value="AM">AM</option><option value="PM">PM</option></select></label><label>Player<input id="histPlayer" type="search" placeholder="Find player…"></label><label>Score to Par min<input id="histMin" type="number" step="1" placeholder="Any" style="width:80px"></label><label>max<input id="histMax" type="number" step="1" placeholder="Any" style="width:80px"></label><button id="histReset">Reset filters</button></div><div id="historySummary"></div><div class="tablewrap board-wrap" id="historyGrid"><table><thead><tr id="histHead"></tr></thead><tbody id="histBody"></tbody></table></div><div class="toolbar"><span id="histCount" class="help"></span><button id="histMore">Show 250 more rows</button></div></div>`;
- const $h=id=>document.getElementById(id);
+ const $h=id=>document.getElementById(id);if(WORKSPACE)$h('dgTour').value=WORKSPACE_TOUR;
  // Excel stores times as fractions of a day; Graph workbook extraction returns raw values.
  const historyTime=v=>{
   if(v==null||String(v).trim()==='')return '';
@@ -902,7 +925,8 @@ async function dgSaveLibrary(rows){const {client,user_id}=await dgIdentity();con
 async function dgLoadLibrary(){const {client}=await dgIdentity();const {data,error}=await client.from('golf_dg_course_library').select('course_name,tour,course_id,layout_year,fairways');if(error)throw error;return data.map(x=>({course:x.course_name,tour:x.tour,course_id:x.course_id,year:x.layout_year||'',fairways:x.fairways}));}
 
 let historyWriting=false,historyPulling=false,historyEpoch=0,historyMemory=null,historyLastCheck=0;
-const historyPreview=location.pathname.includes('/datagolf-preview/')||location.hostname.endsWith('.chatgpt.site');
+const historyPreview=location.pathname.includes('/datagolf-preview/')||location.hostname.endsWith('.chatgpt.site')||(WORKSPACE_PILOT&&!WORKSPACE);
+const HISTORY_TABLE=WORKSPACE?'golf_tournament_research':'golf_dg_history_cache';const historyScope=q=>WORKSPACE?q.eq('workspace_id',WORKSPACE_ID):q;
 function validHistory(p){return !!p&&Array.isArray(p.rows)&&p.rows.length>0&&p.rows.length<=15000;}
 function historyDecision(local,remote,force=false){
  if(!validHistory(remote?.payload))return validHistory(local)?'local-only':'empty';
@@ -927,7 +951,7 @@ async function dgSaveHistory(payload){
  if(historyPreview)throw Error('Cloud history writes disabled in preview.');
  const {client,user_id}=await dgIdentity();
  const body={rows:payload.rows,source:payload.source};
- const {data,error}=await client.from('golf_dg_history_cache').upsert({user_id,payload:body,updated_at:new Date().toISOString()},{onConflict:'user_id'}).select('updated_at').single();
+ const {data,error}=await client.from(HISTORY_TABLE).upsert({user_id,...(WORKSPACE?{workspace_id:WORKSPACE_ID}:{}),payload:body,updated_at:new Date().toISOString()},{onConflict:WORKSPACE?'user_id,workspace_id':'user_id'}).select('updated_at').single();
  if(error)throw error;if(!data?.updated_at)throw Error('Cloud save not acknowledged');
  return {...body,cloudRevision:data.updated_at,cloudOwner:user_id};
 }
@@ -952,12 +976,12 @@ async function pullHistory({force=false,manual=false}={}){
  try{
  const {client,user_id}=await dgIdentity();
  const local=historyMemory||readHistoryCache();
- const {data,error}=await client.from('golf_dg_history_cache').select('user_id,updated_at').eq('user_id',user_id).maybeSingle();
+ const {data,error}=await historyScope(client.from(HISTORY_TABLE).select('user_id,updated_at').eq('user_id',user_id)).maybeSingle();
  if(error)throw error;
  if(historyWriting||historyEpoch!==epoch)return;
  if(!data){histSyncMessage(validHistory(local)?'Local history only. Save it to cloud to sync devices.':'No saved history yet.',validHistory(local));return;}
  if(!force&&local?.cloudRevision===data.updated_at&&local.cloudOwner===user_id){histSyncMessage('Synced · '+new Date(data.updated_at).toLocaleString());return;}
- const result=await client.from('golf_dg_history_cache').select('user_id,updated_at,payload').eq('user_id',user_id).maybeSingle();
+ const result=await historyScope(client.from(HISTORY_TABLE).select('user_id,updated_at,payload').eq('user_id',user_id)).maybeSingle();
  if(result.error)throw result.error;
  if(historyWriting||historyEpoch!==epoch)return;
  const remote=result.data,decision=historyDecision(local,remote,force);
@@ -1080,9 +1104,9 @@ function gvmHistoryDraw(){
  const rows=[...gvmPlayerHistoryRows].sort((a,b)=>{const c=gvmPlayerHistorySort,x=a[c],y=b[c];if(c==='P'){const m=t=>{const p=gvmHistoryTee(t).match(/^(\d+):(\d+) (AM|PM)$/);return p?(Number(p[1])%12+(p[3]==='PM'?12:0))*60+Number(p[2]):NaN;};return (m(x)-m(y))*gvmPlayerHistoryDir;}const nx=Number(x),ny=Number(y);return (x!==''&&y!==''&&Number.isFinite(nx)&&Number.isFinite(ny)?nx-ny:String(x??'').localeCompare(String(y??''),undefined,{numeric:true}))*gvmPlayerHistoryDir || (Number(a.K)-Number(b.K));});
  const frag=document.createDocumentFragment();for(const r of rows){const tr=document.createElement('tr');for(const [col] of GVM_PLAYER_HISTORY_COLUMNS){const td=document.createElement('td');td.textContent=gvmHistoryValue(r,col);td.className='num';tr.appendChild(td);}frag.appendChild(tr);}body.appendChild(frag);
 }
-function gvmOpenPlayerHistory(player){
+function gvmOpenPlayerHistory(player,workspace=WORKSPACE_ID){
  const modal=$('gvmHistoryModal');if(!modal)return;
- let records=[];try{const data=JSON.parse(localStorage.getItem('gvm-v77-tournament-history')||'null');if(Array.isArray(data?.rows))records=data.rows;}catch(e){}
+ let records=[];try{const data=JSON.parse(localStorage.getItem(workspaceKey('gvm-v77-tournament-history',workspace))||'null');if(Array.isArray(data?.rows))records=data.rows;}catch(e){}
  const key=playerKey(player);gvmPlayerHistoryRows=records.filter(r=>playerKey(r.H)===key);
  gvmPlayerHistorySort='B';gvmPlayerHistoryDir=-1;
  $('gvmHistoryTitle').textContent=player;
@@ -1199,8 +1223,8 @@ function modelLocalCourse(rows,par,courses,from,to){
 
 (function(){
  const panel=document.getElementById('gvm-panel-modelbuilder');if(!panel)return;
- const preview=location.pathname.includes('/datagolf-preview/')||location.hostname.endsWith('.chatgpt.site');
- const nowYear=new Date().getUTCFullYear(),CACHE='gvm-v77-tournament-history';
+ const preview=location.pathname.includes('/datagolf-preview/')||location.hostname.endsWith('.chatgpt.site')||(WORKSPACE_PILOT&&!WORKSPACE);
+ const nowYear=new Date().getUTCFullYear(),CACHE=workspaceKey('gvm-v77-tournament-history');
  panel.innerHTML='<div class="panel"><div class="panelhead"><h2>BoB/Bogey+ Model Builder <span class="tag">V1.0.4</span></h2><span class="help" id="mbActive"></span></div><p class="note">Generate player-specific BoB and Bogey+ linear regressions against score to par. The historical archive is independent of Tournament History and shared across your devices. Combined PGA + DP World fits pool individual historical rounds, with duplicate co-sanctioned rounds removed when matched. Existing models and sportsbook lines are unchanged until you apply reviewed coefficients.</p><h3 style="font-size:15px;margin-top:20px">1 · Historical baseline archive</h3><div class="toolbar"><label>Baseline tour<select id="mbTour"><option value="combined">PGA + DP World (combined)</option><option value="pga">PGA</option><option value="euro">DP World</option><option value="liv">LIV</option><option value="kft">Korn Ferry</option></select></label><label>Baseline from<input id="mbFrom" type="number" min="2004" max="'+nowYear+'" value="'+(nowYear-6)+'" style="width:100px"></label><label>Through<input id="mbTo" type="number" min="2004" max="'+nowYear+'" value="'+nowYear+'" style="width:100px"></label><button id="mbArchive" class="primary">Download missing years</button><button id="mbLatest">Refresh latest selected year</button><button id="mbStop" hidden>Stop after current year</button><button id="mbCheck">Refresh archive status</button></div><div id="mbArchiveStatus" class="help" role="status" style="margin:10px 0">Open this tab while signed in to check archive coverage.</div><div id="mbArchiveYears" style="display:flex;flex-wrap:wrap;gap:6px"></div><h3 style="font-size:15px;margin-top:24px">2 · Field and model settings</h3><div class="toolbar"><label>Tournament label<input id="mbEvent" placeholder="e.g. Hero World Challenge"></label><label>Course par<select id="mbPar"><option value="70">70</option><option value="71">71</option><option value="72">72</option><option value="69">69</option><option value="73">73</option></select></label><label>Baseline minimum player rounds<input id="mbMinBase" type="number" min="3" max="1000" value="20" style="width:100px"></label><label>Course minimum player rounds<input id="mbMinCourse" type="number" min="3" max="1000" value="8" style="width:100px"></label><label>Course weight (%)<input id="mbWeight" type="number" min="0" max="100" step="5" value="40" style="width:100px"></label><label>Player share within course model (%)<input id="mbPlayerShare" type="number" min="0" max="100" step="5" value="100" style="width:100px"></label></div><p id="mbWeights" class="help"></p><div class="toolbar"><label>Course data source<select id="mbCourseSource"><option value="history">Current Tournament History</option><option value="archive">Permanent archive (selected tour/years)</option><option value="none">No course adjustment</option></select></label><label>Filter course names<input type="search" id="mbCourseFilter" placeholder="e.g. Albany"></label><button type="button" id="mbCoursesAll">Select matching</button><button type="button" id="mbCoursesNone">Clear courses</button><button type="button" id="mbReloadCourse">Refresh course list</button></div><div id="mbCourseOptions" style="max-height:180px;overflow:auto;display:flex;flex-wrap:wrap;gap:8px;padding:10px 0"></div><p id="mbCourseStatus" class="help"></p><div class="toolbar"><label>Field source<select id="mbFieldSource"><option value="live">DataGolf weekly field</option><option value="round">Imported round projections</option><option value="manual">Manual player list</option></select></label><label>Field tour<select id="mbFieldTour"><option value="auto">Auto (PGA / DP World)</option><option value="pga">PGA Tour</option><option value="euro">DP World Tour</option><option value="upcoming_pga">Next PGA event</option><option value="opp">PGA opposite field</option><option value="alt">LIV Golf</option><option value="kft">Korn Ferry</option></select></label><button id="mbLoadField" type="button">Refresh DataGolf field</button><button id="mbFieldRefresh">Use current round field</button><span id="mbFieldStatus" class="help" role="status"></span><label style="display:flex;flex-direction:row;align-items:center"><input type="checkbox" id="mbPartial">Allow incomplete archive (explicit override)</label></div><details id="mbFieldReview" style="margin-top:10px" hidden><summary style="cursor:pointer">Review DataGolf field</summary><div id="mbFieldPlayers" style="max-height:180px;overflow:auto;line-height:1.7;padding:8px 0"></div></details><details id="mbManualDetails" style="margin-top:12px"><summary style="cursor:pointer">Optional: enter a different field manually (one player per line)</summary><textarea id="mbManualField" rows="4" placeholder="Scottie Scheffler&#10;Rory McIlroy" style="width:min(100%,440px);margin-top:8px"></textarea><p class="help">Choose Manual player list to use these names, or choose Imported round projections for the board’s current field.</p></details><div class="toolbar" style="margin-top:16px"><button class="primary" id="mbGenerate">Generate player models</button><button id="mbExport" disabled>Export coefficients CSV</button><button id="mbApply" disabled>Apply to BoB / Bogey+ boards</button><button id="mbUndo" disabled>Restore prior coefficients</button></div><p id="mbStatus" class="help" role="status" style="margin:12px 0">Download the baseline years first, or use 100% course history for a course-only model.</p><div id="mbResultsSummary"></div><div class="tablewrap"><table style="min-width:1020px"><thead><tr><th>Player</th><th>Baseline rounds</th><th>Course rounds</th><th>BoB intercept</th><th>BoB coeff.</th><th>Bogey+ intercept</th><th>Bogey+ coeff.</th><th>Model source</th></tr></thead><tbody id="mbResults"></tbody></table></div><p class="note">Sample counts show player-specific history. Fallbacks use pooled tour or course fits. Coefficients can be edited before applying; the existing pricing distributions are unchanged. BoB/Bogey+ counts are validated as completed-round counts; missing counts are excluded unless safely derivable.</p></div>';
  const $m=id=>document.getElementById(id),status=s=>$m('mbStatus').textContent=s,archiveStatus=s=>$m('mbArchiveStatus').textContent=s;
  let archives=[],historyRows=[],courseList=[],selectedCourses=new Set(),lastCourseScope='',results=[],config=null,busy=false,stop=false,opened=false,archiveLoaded=false,liveField=null,fieldLoading=false,fieldEpoch=0,fieldError='',lastFieldChecked=0;
@@ -1215,7 +1239,7 @@ function modelLocalCourse(rows,par,courses,from,to){
  }
  async function loadWeeklyField(refresh=false){if(busy||fieldLoading||$m('mbFieldSource').value!=='live'||preview)return;const tour=$m('mbFieldTour').value,epoch=++fieldEpoch;fieldLoading=true;fieldError='';fieldStatus();try{const {client}=await identity();let result;for(let i=0;i<3;i++){result=await client.functions.invoke('golf-model-field',{body:{tour,refresh}});if(!result.error||result.error.context?.status!==429)break;await new Promise(resolve=>setTimeout(resolve,1700));}if(result.error){let detail=result.error.message;try{detail=(await result.error.context?.json())?.error||detail;}catch{}throw Error(detail);}
  if(epoch!==fieldEpoch||$m('mbFieldSource').value!=='live'||$m('mbFieldTour').value!==tour)return;
- const next=result.data?.field;if(!next||!Array.isArray(next.players)||!next.players.length){liveField=null;invalidate();const choices=(result.data?.choices||[]).map(f=>f.event+(f.start_date?' ('+f.start_date+')':'')).join(' / ');throw Error(choices?'Choose a field tour: '+choices:'No published field found. '+(result.data?.errors||[]).join('; '));}
+ const next=result.data?.field;if(WORKSPACE&&next&&(next.tour!==WORKSPACE_TOUR||clean(next.event)!==clean(WORKSPACE.event_name)||next.start_date&&Number(next.start_date.slice(0,4))!==Number(WORKSPACE.event_year))){liveField=null;invalidate();throw Error('Published field belongs to '+next.event+' ('+next.tour+'). Switch tournament workspaces or use your archived field.');}if(!next||!Array.isArray(next.players)||!next.players.length){liveField=null;invalidate();const choices=(result.data?.choices||[]).map(f=>f.event+(f.start_date?' ('+f.start_date+')':'')).join(' / ');throw Error(choices?'Choose a field tour: '+choices:'No published field found. '+(result.data?.errors||[]).join('; '));}
  const oldKey=liveField?JSON.stringify([liveField.event_id,liveField.event,liveField.players.map(p=>p.name)]):'';const newKey=JSON.stringify([next.event_id,next.event,next.players.map(p=>p.name)]);if(oldKey!==newKey)invalidate();
  liveField=next;lastFieldChecked=Date.now();if(!$m('mbEvent').value||oldKey!==newKey)$m('mbEvent').value=next.event;fieldError='';if(!next.start_date)fieldError=next.players.length+' players · '+next.event+' · date not verified; review event before generating.';
  }catch(e){if(epoch===fieldEpoch)fieldError=(e.message||String(e))+(liveField?' · Previously loaded field retained.':'');}finally{fieldLoading=false;fieldStatus();}}
@@ -1254,7 +1278,7 @@ function modelLocalCourse(rows,par,courses,from,to){
  }catch(e){status('Generation failed: '+(e.message||String(e))+' Existing board coefficients retained.');}finally{setBusy(false);}}
  function exportCsv(){if(!config)return;const esc=v=>'"'+String(v??'').replace(/"/g,'""')+'"';const rows=[['Player','BoB Intercept','BoB Coeff','Bogey+ Intercept','Bogey+ Coeff','Baseline Rounds','Course Rounds','Source'],...results.filter(r=>r.result).map(r=>[r.name,...modelFields.map(k=>r.result[k]),r.baselineN,r.courseN,r.source])];const url=URL.createObjectURL(new Blob([rows.map(r=>r.map(esc).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='golf-player-models.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
  async function apply(){if(busy||!config||preview||!results.length||results.some(r=>!r.result||!modelFields.every(k=>Number.isFinite(r.result[k]))))return;const currentNames=field();if(JSON.stringify(currentNames)!==JSON.stringify(config.field)){invalidate();status('Field changed. Generate again before applying.');return;}const data=roundData(),matches=data.players.filter(p=>results.some(r=>r.key===playerKey(p.name))).length;if(data.players.length&&Number(data.par)!==config.par&&!confirm('Model par '+config.par+' differs from current board par '+data.par+'. Continue?'))return;if(!confirm('Apply '+results.length+' reviewed models to all rounds? '+matches+'/'+data.players.length+' current-round players match. Your existing coefficient set will be retained as a restorable backup.'))return;setBusy(true);
- try{const {client,user}=await identity();const runModels=results.map(r=>({player:r.name,playerKey:r.key,...r.result,baselineRounds:r.baselineN,courseRounds:r.courseN,source:r.source,actualWeight:r.actualWeight,overridden:!!r.overridden,baseFit:r.baseFit,coursePoolFit:r.coursePoolFit,coursePlayerFit:r.coursePlayerFit}));const {data:run,error}=await client.from('golf_model_runs').insert({user_id:user.id,config,models:runModels}).select('run_id,created_at').single();if(error)throw error;
+ try{const {client,user}=await identity();const runModels=results.map(r=>({player:r.name,playerKey:r.key,...r.result,baselineRounds:r.baselineN,courseRounds:r.courseN,source:r.source,actualWeight:r.actualWeight,overridden:!!r.overridden,baseFit:r.baseFit,coursePoolFit:r.coursePoolFit,coursePlayerFit:r.coursePlayerFit}));const {data:run,error}=await client.from('golf_model_runs').insert({user_id:user.id,config:{...config,workspace:WORKSPACE},models:runModels}).select('run_id,created_at').single();if(error)throw error;
  const store=bobStore(),old={models:store.models,source:store.source,modelBuilderPrevious:store.modelBuilderPrevious,modelRun:store.modelRun};const models=Object.fromEntries(results.map(r=>[r.key,{bobIntercept:r.result.bob_intercept,bobCoefficient:r.result.bob_slope,bogeyIntercept:r.result.bogey_intercept,bogeyCoefficient:r.result.bogey_slope}]));
  store.modelBuilderPrevious={models:old.models,source:old.source||'Previous models',modelRun:old.modelRun||null};store.models=models;store.source='Model Builder · '+(config.event||config.tour.toUpperCase()+' Par '+config.par)+' · '+Math.round(config.weight*100)+'% course · '+new Date(run.created_at).toLocaleString();store.modelRun=run.run_id;
  try{persist();}catch(e){Object.assign(store,old);throw e;}render();fieldStatus();status('Applied '+results.length+' models. Saved model run '+run.run_id.slice(0,8)+'; existing sportsbook odds retained. Board cloud sync will carry the coefficients to your other device.');
@@ -1263,9 +1287,41 @@ function modelLocalCourse(rows,par,courses,from,to){
  for(const id of ['mbTour','mbFrom','mbTo','mbPar','mbCourseSource'])$m(id).addEventListener('change',()=>{invalidate();showArchive();refreshCourses();showWeights();});
  for(const id of ['mbWeight','mbPlayerShare','mbMinBase','mbMinCourse','mbEvent','mbPartial','mbManualField'])$m(id).addEventListener('input',()=>{invalidate();showWeights();fieldStatus();});
  $m('mbCourseFilter').oninput=drawCourses;$m('mbCoursesAll').onclick=()=>{for(const x of courseList.filter(matchesCourse))selectedCourses.add(x);drawCourses();invalidate();};$m('mbCoursesNone').onclick=()=>{selectedCourses.clear();drawCourses();invalidate();};$m('mbReloadCourse').onclick=()=>{invalidate();refreshCourses(true);};$m('mbFieldSource').onchange=()=>{fieldEpoch++;invalidate();fieldStatus();if($m('mbFieldSource').value==='manual')$m('mbManualDetails').open=true;if($m('mbFieldSource').value==='live'&&!liveField)loadWeeklyField();};$m('mbFieldTour').onchange=()=>{fieldEpoch++;liveField=null;fieldError='';invalidate();fieldStatus();loadWeeklyField();};$m('mbLoadField').onclick=()=>loadWeeklyField(true);$m('mbFieldRefresh').onclick=()=>{$m('mbFieldSource').value='round';fieldEpoch++;$m('mbManualField').value='';$m('mbPar').value=String(roundData().par);invalidate();fieldStatus();refreshCourses(true);};$m('mbArchive').onclick=()=>importArchives(false);$m('mbLatest').onclick=()=>importArchives(true);$m('mbStop').onclick=()=>{stop=true;archiveStatus('Stopping after current year…');};$m('mbCheck').onclick=()=>checkArchive().catch(e=>archiveStatus(e.message));$m('mbGenerate').onclick=generate;$m('mbExport').onclick=exportCsv;$m('mbApply').onclick=apply;$m('mbUndo').onclick=undo;
- document.getElementById('gvm-tab-modelbuilder').addEventListener('click',()=>{if(!opened){opened=true;const par=String(roundData().par);if([...$m('mbPar').options].some(o=>o.value===par))$m('mbPar').value=par;checkArchive().catch(e=>archiveStatus(e.message));}else{if(config&&JSON.stringify(field())!==JSON.stringify(config.field))invalidate();refreshCourses();}fieldStatus();showWeights();if($m('mbFieldSource').value==='live'&&(!liveField||Date.now()-lastFieldChecked>300000))loadWeeklyField();});
- fieldStatus();showWeights();refreshCourses();
+ document.getElementById('gvm-tab-modelbuilder').addEventListener('click',()=>{if(!opened){opened=true;const par=String(roundData().par);if(!modelSettingsRestored&&[...$m('mbPar').options].some(o=>o.value===par))$m('mbPar').value=par;checkArchive().catch(e=>archiveStatus(e.message));}else{if(config&&JSON.stringify(field())!==JSON.stringify(config.field))invalidate();refreshCourses();}fieldStatus();showWeights();if($m('mbFieldSource').value==='live'&&(!liveField||Date.now()-lastFieldChecked>300000))loadWeeklyField();});
+ if(WORKSPACE){$m('mbFieldTour').value=WORKSPACE_TOUR;$m('mbEvent').value=WORKSPACE.event_name;}
+ const modelSettingsIds=['mbTour','mbFrom','mbTo','mbPar','mbCourseSource','mbWeight','mbPlayerShare','mbMinBase','mbMinCourse','mbEvent','mbPartial','mbManualField','mbFieldSource','mbFieldTour'];
+ let modelSettingsRestored=false;function restoreModelSettings(){const saved=state.modelBuilderSettings;if(!saved||modelSettingsRestored)return;modelSettingsRestored=true;for(const id of modelSettingsIds){if(saved[id]===undefined)continue;const el=$m(id);if(el.type==='checkbox')el.checked=!!saved[id];else el.value=String(saved[id]);}refreshCourses();if(Array.isArray(saved.courses)){selectedCourses=new Set(saved.courses);drawCourses();}fieldStatus();showWeights();}
+ function saveModelSettings(){if(!WORKSPACE)return;state.modelBuilderSettings=Object.fromEntries(modelSettingsIds.map(id=>[id,$m(id).type==='checkbox'?$m(id).checked:$m(id).value]));state.modelBuilderSettings.courses=[...selectedCourses];persist();}for(const id of modelSettingsIds)$m(id).addEventListener('change',saveModelSettings);$m('mbCourseOptions').addEventListener('change',saveModelSettings);for(const id of ['mbCoursesAll','mbCoursesNone','mbFieldRefresh'])$m(id).addEventListener('click',saveModelSettings);window.addEventListener('gvm-workspace-synced',()=>{if(!opened)restoreModelSettings();});restoreModelSettings();fieldStatus();showWeights();refreshCourses();
 })();
 
 })();
+</script>
+<script>
+
+(function(){
+ const header=document.querySelector('.wrap>header');if(!header)return;
+ const bar=document.createElement('section');bar.className='panel';bar.style.cssText='margin:14px 0;border-color:'+(WORKSPACE_TOUR==='euro'?'#50e3a4':'#7db8ff');
+ bar.innerHTML='<div class="panelhead"><div><strong id="wsActive" style="font-size:18px"></strong><p id="wsNote" class="help" style="margin:4px 0"></p></div><span class="tag">Multi-tour V1</span></div><div class="toolbar"><button id="wsPga">PGA Tour</button><button id="wsEuro">DP World Tour</button><label>Saved tournaments<select id="wsList"><option value="">Select saved tournament</option></select></label><button id="wsOpen">Open selected</button><button id="wsLegacy">Existing board</button></div><details id="wsCreate" style="margin-top:10px"><summary style="cursor:pointer">Find or create tournament workspace</summary><div class="toolbar" style="margin-top:10px"><label>Tour<select id="wsTour"><option value="pga">PGA Tour</option><option value="euro">DP World Tour</option></select></label><button id="wsFind">Find this week’s tournament</button><label>Tournament<input id="wsName" maxlength="160" placeholder="Tournament name"></label><label>Year<input id="wsYear" type="number" min="2000" max="2100" style="width:90px"></label><label>Course<input id="wsCourse" maxlength="160"></label><button id="wsNew" class="primary">Create / open workspace</button><label style="flex-direction:row;align-items:center" id="wsCopyLabel"><input id="wsCopy" type="checkbox">Copy existing board and history into NEW workspace</label></div><p class="help">Create a fresh workspace each tournament. Copy existing data only when you know it belongs to that exact event. The existing board is never deleted.</p></details><p class="help" id="wsStatus" role="status"></p>';
+ header.insertAdjacentElement('afterend',bar);const $w=id=>document.getElementById(id),status=x=>$w('wsStatus').textContent=x;
+ $w('wsActive').textContent=workspaceLabel(WORKSPACE);$w('wsNote').textContent=WORKSPACE?(WORKSPACE.course_name||'Course not set')+' · '+(WORKSPACE.start_date||'Date not set')+' · All imports on this page belong to this tournament.':WORKSPACE_PILOT?'Multi-tour pilot. Create a workspace or explicitly copy your saved cloud board into a new one. Your original board stays unchanged.':'Original saved data remains here. Create a tournament workspace or copy the existing data after verifying its destination.';
+ $w('wsTour').value=WORKSPACE_TOUR||'pga';$w('wsYear').value=String(new Date().getFullYear());$w('wsCopyLabel').hidden=!!WORKSPACE;
+ let rows=[],found=null,working=false,client=null,user=null;
+ const preview=location.hostname.endsWith('.chatgpt.site')||location.pathname.includes('/datagolf-preview/');
+ const metaFields='workspace_id,tour,event_year,event_name,course_name,event_id,start_date';
+ function onlyMeta(r){return Object.fromEntries(metaFields.split(',').map(k=>[k,r[k]??(k==='start_date'?null:'')]));}
+ function paint(){const select=$w('wsList'),prev=select.value;select.replaceChildren(new Option('Select saved tournament',''));for(const row of rows)select.add(new Option(workspaceLabel(row),row.workspace_id));select.value=rows.some(r=>r.workspace_id===prev)?prev:WORKSPACE_ID;for(const t of ['pga','euro']){const b=$w(t==='pga'?'wsPga':'wsEuro');b.classList.toggle('primary',WORKSPACE_TOUR===t);}}
+ async function loadRegistry(){if(preview){status('Isolated preview; no production tournament writes.');return;}client=window.golfPagesAuth?.client;if(!client)throw Error('Sign in first');const u=await client.auth.getUser();if(u.error||!u.data.user)throw Error('Sign in first');user=u.data.user;const {data,error}=await client.from('golf_tournament_boards').select(metaFields).eq('user_id',user.id).order('event_year',{ascending:false}).order('start_date',{ascending:false});if(error)throw error;rows=(data||[]).filter(workspaceValid);window.gvmWorkspaceRegistry=rows;paint();window.dispatchEvent(new Event('gvm-workspace-registry'));status(rows.length+' saved tournament workspaces · original board preserved.');if(WORKSPACE){cloudClient=client;cloudUser=user;cloudButtons();await cloudRestore();}}
+ async function find(){if(working||preview)return;working=true;try{if(!client)await loadRegistry();const tour=$w('wsTour').value;status('Checking DataGolf '+tour+' field…');const {data,error}=await client.functions.invoke('golf-model-field',{body:{tour,refresh:true}});if(error)throw error;const field=data?.field;if(!field||!field.event)throw Error('No published field found. Enter tournament name and year manually.');if(!field.start_date)throw Error('Field date is unverified. Enter tournament details manually.');const start=Date.parse(field.start_date),now=Date.now();if(!Number.isFinite(start)||start<now-5*86400000||start>now+8*86400000)throw Error('Published field is not this week. Use a saved event or enter a new tournament.');found={tour,field};$w('wsName').value=field.event;$w('wsYear').value=field.start_date.slice(0,4);$w('wsCourse').value=field.course||'';status(field.event+' · '+field.players.length+' published players. Review details and create workspace.');}catch(e){status(e.message||String(e));}finally{working=false;}}
+ async function create(){if(working||preview)return;working=true;try{if(!client)await loadRegistry();const tour=$w('wsTour').value,year=Number($w('wsYear').value),name=$w('wsName').value.trim(),course=$w('wsCourse').value.trim();if(!name)throw Error('Enter tournament name.');const f=found?.tour===tour&&found.field.event===name&&Number(found.field.start_date.slice(0,4))===year?found.field:null;const meta={workspace_id:workspaceId(tour,year,f?.event_id,name),tour,event_year:year,event_name:name,course_name:course,event_id:f?.event_id||'',start_date:f?.start_date||null};const existing=rows.find(r=>r.workspace_id===meta.workspace_id||r.tour===tour&&r.event_year===year&&clean(r.event_name)===clean(name));if(existing){await workspaceSwitch(onlyMeta(existing));return;}
+ const copy=!WORKSPACE&&$w('wsCopy').checked;let data={rounds:{},stdev:{},aliases:JSON.parse(localStorage.getItem(ALIAS_KEY)||'{}')},history=null;
+ if(copy){if(!confirm('Copy '+(WORKSPACE_PILOT?'the existing SAVED CLOUD board and history':'the current existing board and cached history')+' to '+workspaceLabel(meta)+'? Verify ALL records belong to this tournament. Original data stays unchanged.'))return;if(WORKSPACE_PILOT){const legacy=await client.from('user_board_state').select('board_data').eq('user_id',user.id).maybeSingle();if(legacy.error)throw legacy.error;if(!legacy.data?.board_data?.rounds)throw Error('No saved cloud board. Sync the original board first.');data=legacy.data.board_data;const h=await client.from('golf_dg_history_cache').select('payload').eq('user_id',user.id).maybeSingle();if(h.error)throw h.error;if(h.data?.payload?.rows?.length)history=h.data.payload;}else{data=JSON.parse(cloudPayload());try{const h=JSON.parse(localStorage.getItem(workspaceKey('gvm-v77-tournament-history',''))||'null');if(h?.rows?.length)history={rows:h.rows,source:h.source||'Copied existing history'};}catch{}}}
+ const {error}=await client.from('golf_tournament_boards').insert({user_id:user.id,...meta,board_data:data});if(error)throw error;
+ if(history){const h=await client.from('golf_tournament_research').insert({user_id:user.id,workspace_id:meta.workspace_id,payload:history});if(h.error){localStorage.setItem(workspaceKey('gvm-v77-tournament-history',meta.workspace_id),JSON.stringify({...history,pendingCloud:true}));alert('Board copied, but history upload failed. Local history preserved; sync it from Tournament History.');}}
+ await workspaceSwitch(meta);
+ }catch(e){status('Create failed: '+(e.message||String(e)));}finally{working=false;}}
+ function choose(t){const last=workspaceLast()[t],row=rows.find(r=>r.workspace_id===last)||rows.find(r=>r.tour===t);if(row){workspaceSwitch(onlyMeta(row)).catch(e=>status(e.message));return;}$w('wsTour').value=t;$w('wsCreate').open=true;status('No '+t.toUpperCase()+' workspace saved. Find this week’s event or enter tournament details.');}
+ $w('wsPga').onclick=()=>choose('pga');$w('wsEuro').onclick=()=>choose('euro');$w('wsLegacy').onclick=()=>workspaceSwitch(null).catch(e=>status(e.message));$w('wsFind').onclick=find;$w('wsNew').onclick=create;$w('wsOpen').onclick=()=>{const row=rows.find(r=>r.workspace_id===$w('wsList').value);if(row)workspaceSwitch(onlyMeta(row)).catch(e=>status(e.message));};$w('wsTour').onchange=()=>{found=null;};
+ const init=()=>loadRegistry().catch(e=>status(e.message||String(e)));if(document.body.classList.contains('golf-auth-ready'))init();else{const obs=new MutationObserver(()=>{if(document.body.classList.contains('golf-auth-ready')){obs.disconnect();init();}});obs.observe(document.body,{attributes:true,attributeFilter:['class']});}
+})();
+
 </script></body></html>

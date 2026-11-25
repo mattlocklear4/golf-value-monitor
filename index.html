@@ -352,7 +352,7 @@ $('saveAlias').onclick=()=>{
 $('boardMinRoi').addEventListener('input',renderBoard);
 
 function gvmMakePlayerClickable(td,name,workspace=WORKSPACE_ID){td.replaceChildren();const b=document.createElement('button');b.type='button';b.className='gvm-history-link';b.textContent=name;b.title='View '+name+' tournament round history';b.addEventListener('click',()=>gvmOpenPlayerHistory(name,workspace));td.appendChild(b);}
-$('round').onchange=e=>{current=e.target.value;localStorage.setItem(workspaceKey('gvm-selected-round'),current);
+$('round').onchange=e=>{current=e.target.value;localStorage.setItem(workspaceKey('gvm-selected-round'),current);if(WORKSPACE){state.workspaceRound=current;persist();}
 
 updateControls();updateSdStatus();};for(let id of ['par','field']){$(id).addEventListener('change',e=>{roundData()[id]=number(e.target.value);persist();render();});}
 $('resetModel').onclick=()=>{let d=roundData();d.par=71;d.field=-1.30;persist();updateControls();};
@@ -449,7 +449,7 @@ async function cloudReconcile(found,initial){
 async function cloudRestore(){
  if(!cloudReady())return;
  const base=cloudBaseline();
- if(!base){if(WORKSPACE&&!CLOUD_READ_ONLY_PREVIEW){try{const found=await cloudRead();if(!found.data?.board_data?.rounds)throw Error('Tournament workspace not found.');const remote=cloudRemoteSnapshot(found);const localSaved=localStorage.getItem(KEY);const localHasData=localSaved&&Object.entries(state).some(([k,v])=>['1','2','3','4'].includes(k)&&v?.players?.length||k==='bob'&&Object.keys(v?.models||{}).length);if(localHasData&&!cloudSame(state,remote.rounds)){cloudEnabled=false;cloudPauseUI();cloudMsg('Local tournament data has no sync baseline. Load cloud data only after checking your local copy.');return;}cloudApplySnapshot(remote);cloudMarkSynced(found.data.updated_at,remote);cloudEnabled=true;cloudLastReceived=found.data.updated_at;cloudStartPolling();cloudPauseUI();cloudSyncStatus('Tournament cloud data loaded. Automatic sync active.');return;}catch(e){cloudMsg('Tournament cloud load failed: '+e.message);return;}}cloudEnabled=false;cloudPauseUI();cloudMsg('Signed in. Choose Upload or Load to initialize cloud sync on this browser.');return;}
+ if(!base){if(WORKSPACE&&!CLOUD_READ_ONLY_PREVIEW){try{const found=await cloudRead();if(!found.data?.board_data?.rounds)throw Error('Tournament workspace not found.');const remote=cloudRemoteSnapshot(found);const localSaved=localStorage.getItem(KEY);const localHasData=localSaved&&Object.entries(state).some(([k,v])=>['1','2','3','4'].includes(k)&&v?.players?.length||k==='bob'&&Object.keys(v?.models||{}).length||k==='modelBuilderSettings');if(localHasData&&!cloudSame(state,remote.rounds)){cloudEnabled=false;cloudPauseUI();cloudMsg('Local tournament data has no sync baseline. Load cloud data only after checking your local copy.');return;}cloudApplySnapshot(remote);cloudMarkSynced(found.data.updated_at,remote);cloudEnabled=true;cloudLastReceived=found.data.updated_at;cloudStartPolling();cloudPauseUI();cloudSyncStatus('Tournament cloud data loaded. Automatic sync active.');return;}catch(e){cloudMsg('Tournament cloud load failed: '+e.message);return;}}cloudEnabled=false;cloudPauseUI();cloudMsg('Signed in. Choose Upload or Load to initialize cloud sync on this browser.');return;}
  cloudBusy=true;
  try{
   const found=await cloudRead(),remote=found.data;
@@ -688,15 +688,18 @@ $('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);c
  <label>Minimum ROI %<input id="bestBetsMin" type="number" step="1" value="0" style="width:110px"></label>
  <label>Prop type<select id="bestBetsProp"><option value="all">All prop types</option><option>Round Score</option><option>BoB</option><option>Bogey+</option><option>Pars</option></select></label>
  <label>Sportsbook<select id="bestBetsBook"><option value="all">All sportsbooks</option><option>DraftKings</option><option>FanDuel</option><option>Caesars</option><option>Fanatics</option></select></label>
- <label>Round<select id="bestBetsRound"><option value="1">Round 1</option><option value="2">Round 2</option><option value="3">Round 3</option><option value="4">Round 4</option></select></label>
- </div><div class="table-wrap"><table id="bestBetsTable" class="board-table"><thead><tr><th>Player</th><th>Prop</th><th>Sportsbook</th><th>Bet</th><th>Line</th><th>Book Odds</th><th>Fair Odds</th><th>ROI %</th></tr></thead><tbody id="bestBetsBody"></tbody></table></div><div id="gvm-bestbet-cards" aria-label="Best Bets mobile cards"></div>
+ <label>Tour scope<select id="bestBetsScope"><option value="active">Active workspace</option><option value="both">Both tours</option></select></label><label>Round (active workspace)<select id="bestBetsRound"><option value="1">Round 1</option><option value="2">Round 2</option><option value="3">Round 3</option><option value="4">Round 4</option></select></label>
+ </div><p class="help" id="bestBetsWorkspaceStatus"></p><div class="table-wrap"><table id="bestBetsTable" class="board-table"><thead><tr><th>Player / Tournament</th><th>Prop</th><th>Sportsbook</th><th>Bet</th><th>Line</th><th>Book Odds</th><th>Fair Odds</th><th>ROI %</th></tr></thead><tbody id="bestBetsBody"></tbody></table></div><div id="gvm-bestbet-cards" aria-label="Best Bets mobile cards"></div>
  <p class="help">All positive-ROI offers, highest first. Uses the existing pricing models for each prop. Filters are view-only.</p>`;
  panels.bestbets.appendChild(bestPanel);
+ let otherBetBoards=[],otherBetLoading=false,otherBetError='';
+ async function loadOtherBetBoards(){if(otherBetLoading||$('bestBetsScope').value!=='both')return;otherBetLoading=true;otherBetError='';try{const client=window.golfPagesAuth?.client;if(!client)throw Error('Sign in to compare both tours.');const {data:u,error:ue}=await client.auth.getUser();if(ue||!u.user)throw Error('Sign in first.');const registry=window.gvmWorkspaceRegistry||[],last=workspaceLast();const targets=['pga','euro'].map(t=>registry.find(x=>x.workspace_id===last[t]&&x.tour===t)||registry.find(x=>x.tour===t)).filter(x=>x&&x.workspace_id!==WORKSPACE_ID);const {data,error}=targets.length?await client.from('golf_tournament_boards').select('workspace_id,board_data,updated_at').eq('user_id',u.user.id).in('workspace_id',targets.map(x=>x.workspace_id)):{data:[]};if(error)throw error;otherBetBoards=(data||[]).flatMap(x=>{const meta=targets.find(t=>t.workspace_id===x.workspace_id);return meta&&x.board_data?.rounds?[{meta,rounds:x.board_data.rounds,round:['1','2','3','4'].includes(x.board_data.rounds.workspaceRound)?x.board_data.rounds.workspaceRound:localStorage.getItem(workspaceKey('gvm-selected-round',x.workspace_id))||'1',updated_at:x.updated_at}]:[];});}catch(e){otherBetBoards=[];otherBetError=e.message||String(e);}finally{otherBetLoading=false;renderBestBets();}}
  function renderBestBets(){
   const body=$('bestBetsBody');if(!body)return;
   $('bestBetsRound').value=current;
   const query=clean($('bestBetsSearch').value),min=Math.max(0,Number($('bestBetsMin').value)||0)/100,prop=$('bestBetsProp').value,bookFilter=$('bestBetsBook').value;
-  const rows=[];
+  const rows=[],scope=$('bestBetsScope').value,contexts=[{meta:WORKSPACE,round:current,rounds:state}];if(scope==='both'){if(!WORKSPACE)contexts.length=0;contexts.push(...otherBetBoards);}const originalState=state,originalRound=current;
+  try{for(const ctx of contexts){state=ctx.rounds;current=ctx.round;const first=rows.length;
   for(const p of roundData().players){if(!clean(p.name).includes(query))continue;
    for(const book of BOOKS){if(bookFilter!=='all'&&book!==bookFilter)continue;
     if(prop==='all'||prop==='Round Score')for(const o of offers(p).filter(x=>x.book===book))rows.push({p,prop:'Round Score',book,side:o.side,line:o.line,odds:o.od,fair:o.fair,roi:o.roi});
@@ -708,16 +711,19 @@ $('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);c
     }
    }
   }
+  for(let i=first;i<rows.length;i++){rows[i].workspace=ctx.meta?.workspace_id||'';rows[i].tournament=workspaceLabel(ctx.meta);rows[i].round=ctx.round;}
+  }}finally{state=originalState;current=originalRound;}
+  $('bestBetsWorkspaceStatus').textContent=contexts.map(x=>workspaceLabel(x.meta)+' · R'+x.round).join(' | ')+(scope==='both'?' · Other workspaces use their last synced data. '+(otherBetError|| (otherBetLoading?'Loading other tournament…':'')):'');
   const valid=rows.filter(r=>Number.isFinite(r.roi)&&r.roi>0&&r.roi>=min).sort((a,b)=>b.roi-a.roi||a.p.name.localeCompare(b.p.name));
-  body.replaceChildren();$('bestBetsCount').textContent=valid.length+' positive-ROI offers'+' · Round '+current;
+  body.replaceChildren();$('bestBetsCount').textContent=valid.length+' positive-ROI offers'+' · '+(scope==='both'?'Both tours':'Round '+current);
   const cards=$('gvm-bestbet-cards');cards.replaceChildren();
   for(const r of valid){
    const card=document.createElement('article');card.className='gvm-bet-card';
    const head=document.createElement('div');head.className='gvm-bet-card-head';
-   const name=document.createElement('span');name.className='player';name.textContent=r.p.name;gvmMakePlayerClickable(name,r.p.name);
+   const name=document.createElement('span');name.className='player';name.textContent=r.p.name;gvmMakePlayerClickable(name,r.p.name,r.workspace);
    const roi=document.createElement('strong');roi.className='gvm-bet-roi '+roiClass(r.roi);roi.textContent='+'+pct(r.roi)+' ROI';
    head.append(name,roi);
-   const context=document.createElement('div');context.className='gvm-bet-context';context.textContent=r.prop+' · '+r.book;
+   const context=document.createElement('div');context.className='gvm-bet-context';context.textContent=r.tournament+' · R'+r.round+' · '+r.prop+' · '+r.book;
    const pick=document.createElement('div');pick.className='gvm-bet-pick';pick.textContent=r.side+' '+r.line.toFixed(1)+(r.prop==='Round Score'?'':' '+r.prop);
    const prices=document.createElement('div');prices.className='gvm-bet-prices';
    for(const [label,value] of [['Book odds',moneyOdds(r.odds)],['Fair odds',r.fair]]){
@@ -728,12 +734,12 @@ $('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);c
   }
   if(!valid.length){const empty=document.createElement('div');empty.className='gvm-bet-empty';empty.textContent='No positive-ROI offers match these filters.';cards.appendChild(empty);}
   for(const r of valid){const tr=document.createElement('tr');for(const [i,v] of [r.p.name,r.prop,r.book,r.side,r.line.toFixed(1),moneyOdds(r.odds),r.fair,'+'+pct(r.roi)].entries()){
-    const td=document.createElement('td');td.textContent=v;if(i===0){td.className='player';gvmMakePlayerClickable(td,r.p.name);}if(i>=4)td.classList.add('num');if(i===7)td.className=roiClass(r.roi);tr.appendChild(td);
+    const td=document.createElement('td');td.textContent=v;if(i===0){td.className='player';gvmMakePlayerClickable(td,r.p.name,r.workspace);const caption=document.createElement('small');caption.style.cssText='display:block;color:var(--muted);font-size:11px;white-space:normal';caption.textContent=r.tournament+' · R'+r.round;td.append(caption);}if(i>=4)td.classList.add('num');if(i===7)td.className=roiClass(r.roi);tr.appendChild(td);
    }body.appendChild(tr);
   }
   if(!valid.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=8;td.className='empty';td.textContent='No positive-ROI offers match these filters. Import sportsbook odds or adjust the filters.';tr.appendChild(td);body.appendChild(tr);}
  }
- for(const id of ['bestBetsSearch','bestBetsMin','bestBetsProp','bestBetsBook'])$(id).addEventListener('input',renderBestBets);
+ for(const id of ['bestBetsSearch','bestBetsMin','bestBetsProp','bestBetsBook'])$(id).addEventListener('input',renderBestBets);$('bestBetsScope').onchange=()=>{renderBestBets();loadOtherBetBoards();};window.addEventListener('gvm-workspace-registry',loadOtherBetBoards);window.addEventListener('gvm-workspace-synced',()=>{if(!panels.bestbets.hidden){renderBestBets();loadOtherBetBoards();}});setInterval(()=>{if(!panels.bestbets.hidden)loadOtherBetBoards();},30000);
  $('bestBetsRound').addEventListener('change',e=>{const r=$('round');r.value=e.target.value;r.dispatchEvent(new Event('change',{bubbles:true}));renderBestBets();});
  $('round').addEventListener('change',()=>{if(!panels.bestbets.hidden)renderBestBets();});
  // V8.2.8: Make the destination round explicit for all four sportsbook imports.
@@ -843,7 +849,7 @@ $('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);c
     if(data.format!=='golf-player-prop-board-backup'||data.version!==1||!data.rounds||typeof data.rounds!=='object'||Array.isArray(data.rounds)||!data.stdev||typeof data.stdev!=='object'||!data.aliases||typeof data.aliases!=='object'||Array.isArray(data.aliases))throw Error('Not a supported Golf Player Prop Board backup.');
     if(data.workspace?.workspace_id&&data.workspace.workspace_id!==WORKSPACE_ID)throw Error('This backup belongs to '+workspaceLabel(data.workspace)+'. Open that workspace first.');
     for(const [key,round] of Object.entries(data.rounds)){
-     if(['bob','pars','modelBuilderSettings'].includes(key))continue;
+     if(['bob','pars','modelBuilderSettings','workspaceRound'].includes(key))continue;
      if(!['1','2','3','4'].includes(key)||!round||!Array.isArray(round.players)||round.players.length>1000||round.players.some(p=>!p||typeof p.name!=='string'||!Number.isFinite(Number(p.dg)))||round.books&&typeof round.books!=='object')throw Error('Invalid round data in backup.');
     }
     if(!confirm('Restore this backup into '+workspaceLabel(WORKSPACE)+'? It will replace this workspace’s locally saved rounds, odds and models. Cloud auto-sync will be paused. Continue?')){msg.textContent='Restore cancelled.';return;}

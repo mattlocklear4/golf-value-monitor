@@ -13,9 +13,15 @@ function normalizeField(raw,tour){
  if(!players.length)return null;
  return {tour,event,event_id:String(meta.event_id??meta.tournament_num??field[0]?.event_id??""),start_date:iso(meta.start_date??meta.event_start_date??meta.tournament_start_date??field[0]?.start_date),course:String(meta.course_name??meta.course??""),players,updated:String(meta.last_updated??meta.updated_at??meta.last_update??"")};
 }
-function attachSchedule(field,raw){if(!field)return null;const rows=Array.isArray(raw)?raw:raw?.schedule??raw?.events??raw?.tournaments??[];if(!Array.isArray(rows))return field;
- const matches=rows.filter(x=>norm(x.event_name??x.tournament_name)===norm(field.event));const exact=matches.find(x=>String(x.event_id??x.tournament_num)===field.event_id&&field.event_id);const match=exact||matches.sort((a,b)=>String(b.start_date??"").localeCompare(String(a.start_date??"")))[0];
- if(match){field.start_date=field.start_date||iso(match.start_date??match.date_start);field.course=field.course||String(match.course??match.course_name??"");}return field;}
+function attachSchedule(field,raw,now=new Date()){
+ if(!field)return null;const rows=Array.isArray(raw)?raw:raw?.schedule??raw?.events??raw?.tournaments??[];if(!Array.isArray(rows))return field;
+ const date=x=>iso(x.start_date??x.date_start??x.event_start_date??x.date);
+ const lo=new Date(new Date(now).getTime()-4*86400000).toISOString().slice(0,10),hi=new Date(new Date(now).getTime()+14*86400000).toISOString().slice(0,10);
+ const candidates=rows.filter(x=>{const d=date(x);return d>=lo&&d<=hi&&norm(x.event_name??x.tournament_name)===norm(field.event);}).sort((a,b)=>date(a).localeCompare(date(b)));
+ const match=candidates.find(x=>field.event_id&&String(x.event_id??x.tournament_num)===field.event_id)||candidates[0];
+ if(match){field.start_date=date(match);field.course=String(match.course_name??match.course??field.course??"");}
+ else if(field.start_date<lo||field.start_date>hi){field.start_date="";}
+ return field;}
 function pickAuto(fields,now){const today=new Date(now);const lo=new Date(today.getTime()-3*86400000).toISOString().slice(0,10),hi=new Date(today.getTime()+4*86400000).toISOString().slice(0,10);const current=fields.filter(f=>f.start_date&&f.start_date>=lo&&f.start_date<=hi);return current.length===1?current[0]:null;}
 
 
@@ -38,7 +44,7 @@ Deno.serve(async req=>{
  if(active)return reply({error:"Field lookup busy, retry shortly"},429);active=true;
  try{
  const get=async(path,params)=>{const p=new URLSearchParams({...params,file_format:"json",key:dg});const res=await fetch("https://feeds.datagolf.com/"+path+"?"+p,{signal:AbortSignal.timeout(20000),redirect:"error"});if(!res.ok)throw Error("DataGolf HTTP "+res.status);return await res.json();};
- const fields=[],errors=[];for(const t of tour==="auto"?["pga","euro"]:[tour]){try{let f=normalizeField(await get("field-updates",{tour:t}),t);if(!f){errors.push(t+": No field published");continue;}if(!f.start_date||!f.course){try{const sched=await get("get-schedule",{tour:["upcoming_pga","opp"].includes(t)?"pga":t});f=attachSchedule(f,sched);}catch{}}
+ const fields=[],errors=[];for(const t of tour==="auto"?["pga","euro"]:[tour]){try{let f=normalizeField(await get("field-updates",{tour:t}),t);if(!f){errors.push(t+": No field published");continue;}{const today=new Date(),season=today.getUTCFullYear(),schedules=[];for(const y of [season,season+1]){try{const s=await get("get-schedule",{tour:["upcoming_pga","opp"].includes(t)?"pga":t,season:String(y)});const rows=Array.isArray(s)?s:s?.schedule??s?.events??s?.tournaments;if(Array.isArray(rows))schedules.push(...rows);}catch{}}f=attachSchedule(f,schedules,today);}
  fields.push(f);}catch(e){errors.push(t+": "+(String(e.message).startsWith("Unrecognized field response")?e.message:String(e.message).startsWith("DataGolf HTTP")?e.message:"Field request failed"));}}
  const chosen=tour==="auto"?pickAuto(fields,new Date()):fields[0]||null;const data={field:chosen,choices:fields.map(f=>({tour:f.tour,event:f.event,start_date:f.start_date,course:f.course,player_count:f.players.length})),errors,checked_at:new Date().toISOString()};cache.set(tour,{at:Date.now(),data});return reply(data);
  }finally{active=false;}

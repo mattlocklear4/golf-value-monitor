@@ -747,7 +747,7 @@ $('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);c
  weatherPanel.innerHTML='<div class="panelhead"><h2>Historical Weather</h2></div><p class="note">Historical wind, gusts, direction and rainfall. API requests run through a local or Netlify server; keys are never included in the browser.</p><iframe title="Historical Weather Dashboard" src="weather.html" style="width:100%;min-height:1250px;border:0;border-radius:12px;background:#08111e" loading="lazy"></iframe>';
  panels.weather.appendChild(weatherPanel);
  const historyTablesPanel=document.createElement('div');historyTablesPanel.className='panel';
- historyTablesPanel.innerHTML='<div class="panelhead"><h2>Tournament History Tables</h2></div><p class="note">Historical scoring and cached weather side by side. No additional weather API calls.</p><iframe title="Tournament History Tables" src="history-tables.html?v=combined-scoring-20261125" style="width:100%;min-height:1700px;border:0;border-radius:12px;background:#08111e" loading="lazy"></iframe>';
+ historyTablesPanel.innerHTML='<div class="panelhead"><h2>Tournament History Tables</h2></div><p class="note">Historical scoring and cached weather side by side. No additional weather API calls.</p><iframe title="Tournament History Tables" src="history-tables.html?v=color-scale-20261125" style="width:100%;min-height:1700px;border:0;border-radius:12px;background:#08111e" loading="lazy"></iframe>';
  panels.historytables.appendChild(historyTablesPanel);
  // V7.6: Separate BoB board with independent sportsbook odds, shared players/rounds.
  const bobPanel=document.createElement('div');bobPanel.className='panel';

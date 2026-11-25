@@ -22,6 +22,26 @@ jobs:
         run: |
           mkdir -p _site
           cp index.html weather.html history-tables.html golf-auth.js _site/
+          git fetch --depth=1 origin feature/datagolf-history
+          mkdir -p _site/datagolf-preview
+          for file in index.html weather.html history-tables.html golf-auth.js datagolf-history.js; do
+            git show "FETCH_HEAD:$file" > "_site/datagolf-preview/$file"
+          done
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path('_site/datagolf-preview')
+          isolation = """<script>(function(){const p=Storage.prototype;for(const m of ['getItem','setItem','removeItem']){const old=p[m];p[m]=function(k,...a){return old.call(this,k==='golf-pages-auth-v1'||String(k).startsWith('golf-pages-auth-v1-')?k:'dg-preview:'+k,...a)}}p.clear=function(){throw Error('Storage clear disabled in preview')};})();</script>"""
+          for name in ['index.html','weather.html','history-tables.html']:
+              f=root/name
+              s=f.read_text()
+              import re
+              s=re.sub(r'(<head[^>]*>)',lambda m:m[0]+isolation,s,count=1,flags=re.I)
+              if name=='index.html':
+                  s=s.replace("location.hostname.endsWith('.chatgpt.site')","true")
+                  s=s.replace('<title>Golf Player Prop Board</title>','<title>DataGolf Development Preview</title>')
+                  s=s.replace('<body>','<body><div style="background:#854d0e;color:white;padding:8px;text-align:center">DATAGOLF DEVELOPMENT PREVIEW — separate local board data</div>',1)
+              f.write_text(s)
+          PY
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

@@ -21,7 +21,7 @@ jobs:
       - name: Prepare static site
         run: |
           mkdir -p _site
-          cp index.html weather.html history-tables.html golf-auth.js _site/
+          cp index.html weather.html history-tables.html golf-auth.js datagolf-history.js _site/
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

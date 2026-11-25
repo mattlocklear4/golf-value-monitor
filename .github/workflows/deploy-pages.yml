@@ -49,14 +49,11 @@ jobs:
                   s=s.replace('<body>','<body><div style="background:#854d0e;color:white;padding:8px;text-align:center">DATAGOLF DEVELOPMENT PREVIEW — separate local board data</div>',1)
               f.write_text(s)
           PY
-      - name: Prepare multi-tour pilot (separate tournament stores)
-        continue-on-error: true
+      - name: Prepare multi-tour pilot (checked-in files)
         run: |
-          trap 'rm -rf _site/multi-tour-preview' ERR
-          git fetch --depth=1 origin feature/multi-tour-workspaces
           mkdir -p _site/multi-tour-preview
+          cp multi-tour-preview/index.html multi-tour-preview/weather.html multi-tour-preview/history-tables.html multi-tour-preview/golf-auth.js multi-tour-preview/datagolf-history.js _site/multi-tour-preview/
           for file in index.html weather.html history-tables.html golf-auth.js datagolf-history.js; do
-            git show "FETCH_HEAD:$file" > "_site/multi-tour-preview/$file"
             test -s "_site/multi-tour-preview/$file"
           done
           node - <<'JS'

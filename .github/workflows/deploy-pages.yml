@@ -49,6 +49,25 @@ jobs:
                   s=s.replace('<body>','<body><div style="background:#854d0e;color:white;padding:8px;text-align:center">DATAGOLF DEVELOPMENT PREVIEW — separate local board data</div>',1)
               f.write_text(s)
           PY
+      - name: Prepare multi-tour pilot (separate tournament stores)
+        continue-on-error: true
+        run: |
+          trap 'rm -rf _site/multi-tour-preview' ERR
+          git fetch --depth=1 origin feature/multi-tour-workspaces
+          mkdir -p _site/multi-tour-preview
+          for file in index.html weather.html history-tables.html golf-auth.js datagolf-history.js; do
+            git show "FETCH_HEAD:$file" > "_site/multi-tour-preview/$file"
+            test -s "_site/multi-tour-preview/$file"
+          done
+          node - <<'JS'
+          const fs=require('fs');
+          for(const name of ['index.html','weather.html','history-tables.html']){
+            const html=fs.readFileSync('_site/multi-tour-preview/'+name,'utf8');
+            for(const m of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)){
+              if(m[1].trim())new Function(m[1]);
+            }
+          }
+          JS
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

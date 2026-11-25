@@ -9,7 +9,7 @@ permissions:
   id-token: write
 concurrency:
   group: github-pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   deploy:
     environment:
@@ -22,6 +22,13 @@ jobs:
         run: |
           mkdir -p _site
           cp index.html weather.html history-tables.html golf-auth.js datagolf-history.js _site/
+          touch _site/.nojekyll
+          test -s _site/index.html
+          test -s _site/datagolf-history.js
+      - name: Prepare optional development preview
+        continue-on-error: true
+        run: |
+          trap 'rm -rf _site/datagolf-preview' ERR
           git fetch --depth=1 origin feature/datagolf-history
           mkdir -p _site/datagolf-preview
           for file in index.html weather.html history-tables.html golf-auth.js datagolf-history.js; do
@@ -42,12 +49,11 @@ jobs:
                   s=s.replace('<body>','<body><div style="background:#854d0e;color:white;padding:8px;text-align:center">DATAGOLF DEVELOPMENT PREVIEW — separate local board data</div>',1)
               f.write_text(s)
           PY
-          touch _site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
       - name: Allow uploaded artifact to become available
-        run: sleep 25
+        run: sleep 45
       - id: deployment
         uses: actions/deploy-pages@v4

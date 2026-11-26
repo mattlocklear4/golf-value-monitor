@@ -599,11 +599,11 @@ $('cloudLogout').onclick=async()=>{cloudEnabled=false;clearTimeout(cloudTimer);c
   setup:[findHeading('Round & scoring model'),findHeading('Tournament scoring standard deviations'),sections.find(el=>el.id==='qualityPanel')],
   imports:[findHeading('Round Score sportsbook odds import')],
   cloud:[sections.find(el=>el.id==='cloudPanel')],
-  bestbets:[],bob:[],bogey:[],pars:[],modelbuilder:[],history:[],historytables:[],weather:[]
+  bestbets:[],bob:[],bogey:[],pars:[],modelbuilder:[],history:[],historytables:[],weather:[],live:[]
  };
  const nav=document.createElement('nav');nav.className='gvm-tabs';nav.setAttribute('aria-label','Dashboard sections');
  const panels={};const buttons={};
- const labels={bestbets:'Best Bets',board:'Round Score Board',bob:'BoB Board',bogey:'Bogey+ Board',pars:'Pars Board',modelbuilder:'BoB/Bogey+ Model Builder',history:'Tournament History',historytables:'Tournament History Tables',weather:'Historical Weather',setup:'Player Scoring Input',imports:'Sportsbook Odds Import',cloud:'Cloud & Backup'};
+ const labels={bestbets:'Best Bets',live:'Live Tournament Model',board:'Round Score Board',bob:'BoB Board',bogey:'Bogey+ Board',pars:'Pars Board',modelbuilder:'BoB/Bogey+ Model Builder',history:'Tournament History',historytables:'Tournament History Tables',weather:'Historical Weather',setup:'Player Scoring Input',imports:'Sportsbook Odds Import',cloud:'Cloud & Backup'};
  for(const key of Object.keys(labels)){
   const btn=document.createElement('button');btn.type='button';btn.className='gvm-tab';btn.textContent=labels[key];btn.id='gvm-tab-'+key;btn.setAttribute('role','tab');btn.setAttribute('aria-controls','gvm-panel-'+key);
   const panel=document.createElement('section');panel.id='gvm-panel-'+key;panel.className='gvm-tab-panel';panel.setAttribute('role','tabpanel');panel.setAttribute('aria-labelledby',btn.id);
@@ -1324,4 +1324,4 @@ function modelLocalCourse(rows,par,courses,from,to){
  const init=()=>loadRegistry().catch(e=>status(e.message||String(e)));if(document.body.classList.contains('golf-auth-ready'))init();else{const obs=new MutationObserver(()=>{if(document.body.classList.contains('golf-auth-ready')){obs.disconnect();init();}});obs.observe(document.body,{attributes:true,attributeFilter:['class']});}
 })();
 
-</script></body></html>
+</script><script src="live-tournament-math.js"></script><script src="live-tournament.js"></script></body></html>

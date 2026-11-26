@@ -1,0 +1,13 @@
+const assert=require('node:assert/strict');
+const M=require('../live-tournament-math.js');
+const wave=(n,delta)=>Array.from({length:18},(_,i)=>({hole:i+1,par:4,n,avg_to_par:delta,bob_pct:25,par_pct:60,bogey_plus_pct:15}));
+const p=M.parseHoleFeed({event_name:'Fixture Open',event_id:99,last_updated:'2026-11-25T12:00:00Z',round_1:{AM:wave(50,-.2),PM:wave(100,.1)}});
+const r=M.mergeWaves(p.rows),g=w=>r.filter(x=>x.wave===w),a=M.metrics(g('AM')),b=M.metrics(g('PM')),o=M.metrics(g('Overall'));
+const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-8);
+assert.equal(p.rows.length,36);assert.equal(r.length,54);near(a.delta,-3.6);near(b.delta,1.8);near(o.delta,0);near(o.bob,4.5);near(o.bogey,2.7);near(M.metrics(g('AM'),1,9).delta,-1.8);
+assert.equal(M.metrics(g('AM').slice(0,12)).delta,null);
+assert.equal(M.parseHoleFeed({unknown:[]}).rows.length,0);
+assert.equal(M.mergeWaves(M.parseHoleFeed({round_1:{AM:wave(null,-.2),PM:wave(null,.1)}}).rows).length,36);
+assert.equal(M.history([{L:'Course',K:1,R:'',AK:null},{L:'Course',K:1,R:-2,AK:4},{L:'Other',K:1,R:100}],'Course',1).delta,-2);
+assert.equal(M.parseHoleFeed({round_1:{AM:[{hole:1,par:4,avg_to_par:0,bob_pct:0.2,par_pct:0.6,bogey_plus_pct:0.2}]}}).rows[0].bob,null);
+console.log('13 synthetic live-scoring assertions passed');

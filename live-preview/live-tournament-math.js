@@ -9,15 +9,15 @@ const label=s=>String(s??"").trim();
 const positiveInt=v=>{let n=number(v);return n!==null&&n>=0&&Number.isInteger(n)?n:null;};
 const sum=a=>a.every(x=>x!==null)?a.reduce((a,b)=>a+b,0):null;
 function parseHoleFeed(payload){
- const rows=[],issues=[];const event=label(pick(payload||{},["event_name","event","tournament_name"]));const eventId=label(pick(payload||{},["event_id","tournament_id"]));const updated=label(pick(payload||{},["last_updated","updated_at","last_update"]));
+ const rows=[],issues=[];const event=label(pick(payload||{},["event_name","event","tournament_name"]));const eventId=label(pick(payload||{},["event_id","tournament_id"]));const updated=label(pick(payload||{},["last_updated","updated_at","last_update","timestamp"]));
  function walk(o,ctx={},depth=0){
   if(!o||typeof o!=="object"||depth>12)return;
   if(Array.isArray(o)){for(const x of o)walk(x,ctx,depth+1);return;}
   const round=roundOf(pick(o,["round","round_num","round_number"]))??ctx.round;
   const wave=waveOf(pick(o,["wave","tee_time_wave","tee_wave"]))??ctx.wave;
   const course=label(pick(o,["course_name","course","course_key","course_code","course_id","course_num"]))||ctx.course||"";
-  const hole=positiveInt(pick(o,["hole","hole_num","hole_number"]))??ctx.hole;const par=positiveInt(pick(o,["par","hole_par"]))??ctx.par;const effectiveWave=wave||(hole>=1&&hole<=18?"Overall":null);
-  if(hole>=1&&hole<=18&&round&&effectiveWave){
+  const hole=positiveInt(pick(o,["hole","hole_num","hole_number"]))??ctx.hole;const par=positiveInt(pick(o,["par","hole_par"]))??ctx.par;const effectiveWave=wave||(hole>=1&&hole<=18?"Overall":null);const isHole=pick(o,["hole","hole_num","hole_number"])!==null||ctx.waveNode===true;
+  if(isHole&&hole>=1&&hole<=18&&round&&effectiveWave){
    let delta=number(pick(o,["score_to_par","avg_to_par","scoring_avg_to_par","average_to_par","scoring_average_to_par"]));
    const absolute=number(pick(o,["avg_score","average_score","scoring_average","scoring_avg"]));
    // Never infer whether a generic average is absolute or relative when it is ambiguous.
@@ -32,7 +32,7 @@ function parseHoleFeed(payload){
    if(n!==0&&(delta!==null||bob!==null||pars!==null||bogey!==null))rows.push({round,wave:effectiveWave,course,hole,par,n,delta,bob,pars,bogey});
   }
   for(const [k,v] of Object.entries(o))if(v&&typeof v==="object"){
-   const child={round:roundOf(k)??round,wave:waveOf(k)??wave,course,hole,par};
+   const child={round:roundOf(k)??round,wave:waveOf(k)??wave,course,hole,par,waveNode:!!waveOf(k)};
    walk(v,child,depth+1);
   }
  }

@@ -53,12 +53,14 @@ function metrics(rows,first=1,last=18){
 }
 function history(rows,course,round){const a=rows.filter(r=>String(r.L??"").trim().toLowerCase()===course.trim().toLowerCase()&&Number(r.K)===round);const avg=k=>{const values=a.map(x=>number(x[k])).filter(x=>x!==null);return values.length?values.reduce((a,b)=>a+b,0)/values.length:null;};return {n:a.length,delta:avg("R"),bob:avg("AK"),pars:avg("AL"),bogey:avg("AO")};}
 function parseLeaderboard(payload){const a=Array.isArray(payload)?payload:payload?.data??payload?.players??payload?.predictions;return Array.isArray(a)?a.filter(p=>p&&typeof p.player_name==="string").map(p=>({name:p.player_name,pos:p.current_pos??p.pos??p.position??null,score:p.current_score??p.score??null,today:p.today??null,thru:p.thru??null,rounds:[p.R1??null,p.R2??null,p.R3??null,p.R4??null],win:p.win??null,top5:p.top_5??null,top10:p.top_10??null,top20:p.top_20??null,cut:p.make_cut??p.mc??null})):[];}
-// In-play endpoint requests odds_format=percent: values are treated as percentage points.
+// DataGolf in-play percent format returns unmarked probability fractions (0..1).
+// An explicit % suffix is already in percentage points; never guess units from individual values.
 function percentValue(v){
  if(typeof v!=="number"&&typeof v!=="string")return null;
- const s=String(v).trim().replace(/%$/,"").trim();
- if(!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(s))return null;
- const n=Number(s);return Number.isFinite(n)&&n>=0&&n<=100?n:null;
+ const raw=String(v).trim(),marked=raw.endsWith("%"),s=marked?raw.slice(0,-1).trim():raw;
+ if(!/^(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(s))return null;
+ const n=Number(s);if(!Number.isFinite(n)||n<0||n>(marked?100:1))return null;
+ return marked?n:n*100;
 }
 function formatFinishPercent(v){const n=percentValue(v);return n===null?"—":n.toFixed(2)+"%";}
 function holeChartSeries(rows,round,course,waves){return waves.map(w=>({wave:w,holes:Array.from({length:18},(_,i)=>{const x=rows.find(r=>r.round===round&&r.course===course&&r.wave===w&&r.hole===i+1);return x&&Number.isFinite(x.delta)?x.delta:null;})}));}

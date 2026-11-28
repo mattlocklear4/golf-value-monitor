@@ -65,6 +65,13 @@ jobs:
             }
           }
           JS
+      - name: Prepare isolated live tournament preview
+        run: |
+          node live-preview/tests/live-math.test.cjs
+          node --check live-preview/live-preview.js
+          node --check live-preview/live-tournament-math.js
+          mkdir -p _site/live-preview
+          cp live-preview/index.html live-preview/live-preview.js live-preview/live-tournament-math.js _site/live-preview/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
